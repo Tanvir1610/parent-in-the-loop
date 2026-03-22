@@ -49,8 +49,7 @@ export default function Footer() {
                   href="https://parentintheloop.substack.com"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="hover:text-white transition focus:outline-none focus:ring-2 focus:ring-offset-2 rounded px-1"
-                  style={{ focusRingColor: "#F3A78E" }}
+                  className="hover:text-white transition focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#F3A78E] rounded px-1"
                   aria-label="Read our blog on Substack - opens in new tab"
                 >
                   Blog

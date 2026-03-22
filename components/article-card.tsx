@@ -14,8 +14,7 @@ export default function ArticleCard({ article }: { article: Article }) {
         href={article.substack_url || `/articles/${article.slug}`}
         target={article.substack_url ? "_blank" : "_self"}
         rel={article.substack_url ? "noopener noreferrer" : ""}
-        className="block mb-0 overflow-hidden h-48 flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-offset-2"
-        style={{ focusRingColor: "#7C63B8" } as React.CSSProperties}
+        className="block overflow-hidden h-48 flex-shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#7C63B8]"
         aria-label={`Read "${article.title}" on Substack — category: ${article.category}`}
       >
         <img
@@ -51,13 +50,11 @@ export default function ArticleCard({ article }: { article: Article }) {
 
         {/* Title */}
         <h3
-          className="text-lg font-bold leading-snug line-clamp-2 transition-colors"
+          className="text-lg font-bold leading-snug line-clamp-2 group-hover:text-[#7C63B8] transition-colors"
           style={{
             color: "#222222",
             fontFamily: "var(--font-quicksand), Quicksand, sans-serif",
           }}
-          onMouseEnter={(e) => ((e.currentTarget as HTMLHeadingElement).style.color = "#7C63B8")}
-          onMouseLeave={(e) => ((e.currentTarget as HTMLHeadingElement).style.color = "#222222")}
         >
           {article.title}
         </h3>
@@ -73,7 +70,7 @@ export default function ArticleCard({ article }: { article: Article }) {
         {/* CTA */}
         <div className="pt-2">
           <span
-            className="inline-block text-sm font-bold transition-colors"
+            className="inline-block text-sm font-bold group-hover:text-[#F3A78E] transition-colors"
             style={{ color: "#7C63B8", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}
           >
             Read on Substack →
