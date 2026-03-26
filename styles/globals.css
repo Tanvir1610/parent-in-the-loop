@@ -4,29 +4,25 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* === Parent in the Loop Brand Colors === */
-  /* Base: Soft Cream #FAF6F0 */
-  --background: oklch(0.978 0.005 75);
-  --foreground: oklch(0.133 0.006 70);
+  /* === Parent in the Loop Brand Colors (from Brand Guide) === */
+  --background: oklch(0.978 0.005 75);   /* Soft Cream #FAF6F0 */
+  --foreground: oklch(0.133 0.006 70);   /* Text Graphite #222222 */
 
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.133 0.006 70);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.133 0.006 70);
 
-  /* Primary: Plum Reflection #7C63B8 */
-  --primary: oklch(0.49 0.145 280);
+  --primary: oklch(0.49 0.145 280);      /* Plum Reflection #7C63B8 */
   --primary-foreground: oklch(0.98 0.001 70);
 
-  /* Secondary: Charcoal Gray #3E3E3E */
-  --secondary: oklch(0.27 0 0);
+  --secondary: oklch(0.27 0 0);          /* Charcoal Gray #3E3E3E */
   --secondary-foreground: oklch(0.98 0.001 70);
 
   --muted: oklch(0.94 0.004 75);
   --muted-foreground: oklch(0.60 0.01 70);
 
-  /* Accent: Coral Peach #F3A78E */
-  --accent: oklch(0.745 0.135 32);
+  --accent: oklch(0.745 0.135 32);       /* Coral Peach #F3A78E */
   --accent-foreground: oklch(1 0 0);
 
   --destructive: oklch(0.577 0.245 27.325);
@@ -52,18 +48,6 @@
   --sidebar-accent-foreground: oklch(1 0 0);
   --sidebar-border: oklch(0.92 0.006 75);
   --sidebar-ring: oklch(0.49 0.145 280);
-
-  /* Brand exact hex values */
-  --brand-cream: #FAF6F0;
-  --brand-taupe: #B79D84;
-  --brand-graphite: #222222;
-  --brand-charcoal: #3E3E3E;
-  --brand-sky: #BFD6E1;
-  --brand-sage: #A6B6A1;
-  --brand-coral: #F3A78E;
-  --brand-gold: #F4D78B;
-  --brand-lavender: #B9A6E3;
-  --brand-plum: #7C63B8;
 }
 
 .dark {
@@ -102,8 +86,8 @@
 }
 
 @theme inline {
-  --font-sans: var(--font-nunito), "Nunito", system-ui, sans-serif;
-  --font-display: var(--font-quicksand), "Quicksand", system-ui, sans-serif;
+  /* Only use recognized Tailwind v4 font keys: sans, serif, mono */
+  --font-sans: var(--font-nunito), "Nunito", "Quicksand", system-ui, sans-serif;
   --font-mono: "Fira Code", "Courier New", monospace;
 
   --color-background: var(--background);
@@ -150,7 +134,7 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: var(--font-nunito), "Nunito", system-ui, sans-serif;
+    font-family: var(--font-nunito), "Nunito", "Quicksand", system-ui, sans-serif;
   }
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-quicksand), "Quicksand", system-ui, sans-serif;
