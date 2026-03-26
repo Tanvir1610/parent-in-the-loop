@@ -1,86 +1,143 @@
 "use client"
 
-import { useArticles } from "@/lib/use-articles"
+import { useState, useEffect } from "react"
 import ArticleCard from "./article-card"
+import type { Article } from "@/lib/use-articles"
+
+const CATEGORIES = ["All", "AI Literacy", "Safety", "Family Conversations", "Parenting"]
+
+const CATEGORY_EMOJI: Record<string, string> = {
+  All: "✨",
+  "AI Literacy": "🧠",
+  Safety: "🔒",
+  "Family Conversations": "💬",
+  Parenting: "❤️",
+}
 
 export default function FeaturedContent() {
-  const { articles, loading } = useArticles(true, 3)
+  const [articles, setArticles] = useState<Article[]>([])
+  const [loading, setLoading] = useState(true)
+  const [activeCategory, setActiveCategory] = useState("All")
+  const [visibleCount, setVisibleCount] = useState(3)
+
+  useEffect(() => {
+    async function fetchArticles() {
+      try {
+        const res = await fetch("/api/articles?limit=6")
+        const data = await res.json()
+        setArticles(data.articles || [])
+      } catch {
+        setArticles([])
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchArticles()
+  }, [])
+
+  const filtered =
+    activeCategory === "All"
+      ? articles
+      : articles.filter((a) => a.category === activeCategory)
+
+  const visible = filtered.slice(0, visibleCount)
+  const hasMore = filtered.length > visibleCount
 
   const handleReadMore = () => {
     window.open("https://parentintheloop.substack.com", "_blank", "noopener,noreferrer")
   }
 
   return (
-    <section
-      className="py-20 px-4 sm:px-6 lg:px-8"
-      id="articles"
-      style={{ backgroundColor: "#FAF6F0" }}
-      aria-label="Featured articles"
-    >
+    <section className="py-20 px-4 sm:px-6 lg:px-8" id="articles" style={{ backgroundColor: "#FAF6F0" }} aria-label="Featured articles">
       <div className="max-w-6xl mx-auto">
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-14 gap-6">
+
+        {/* Header */}
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-10 gap-6">
           <div>
-            <p
-              className="text-xs font-bold tracking-widest uppercase mb-2"
-              style={{ color: "#B79D84", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}
-            >
-              ✨ Featured
+            <p className="text-xs font-bold tracking-widest uppercase mb-2" style={{ color: "#B79D84", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}>
+              <span style={{ color: "#F3A78E" }}>✦</span> FEATURED
             </p>
-            <h2
-              className="text-4xl font-bold"
-              style={{ color: "#222222", fontFamily: "var(--font-quicksand), Quicksand, sans-serif" }}
-            >
-              Latest Articles
-            </h2>
-            <p
-              className="mt-2 text-sm"
-              style={{ color: "#B79D84", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}
-            >
-              Evidence-based, family-friendly insights — new every week.
-            </p>
+            <h2 className="text-4xl font-bold" style={{ color: "#222222", fontFamily: "var(--font-quicksand), Quicksand, sans-serif" }}>Latest Articles</h2>
+            <p className="mt-2 text-sm" style={{ color: "#B79D84", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}>Evidence-based, family-friendly insights — new every week.</p>
           </div>
-          <button
-            onClick={handleReadMore}
-            className="px-6 py-3 font-bold rounded-xl transition-all duration-200 hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-offset-2 shadow-md hover:shadow-lg"
-            style={{
-              backgroundColor: "#7C63B8",
-              color: "#fff",
-              fontFamily: "var(--font-nunito), Nunito, sans-serif",
-            }}
-            onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.backgroundColor = "#6B5599")}
-            onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.backgroundColor = "#7C63B8")}
-            aria-label="Read more articles on Substack - opens in new tab"
-          >
-            Read More on Substack →
+          <button onClick={handleReadMore} className="px-6 py-3 font-bold rounded-xl text-white transition-all duration-200 hover:scale-105 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#7C63B8] shadow-md whitespace-nowrap" style={{ backgroundColor: "#7C63B8", fontFamily: "var(--font-nunito), Nunito, sans-serif" }} onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#6B5599" }} onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#7C63B8" }}>
+            All Articles on Substack →
           </button>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-8">
+        {/* Category filter pills */}
+        <div className="flex flex-wrap gap-2 mb-10" role="group" aria-label="Filter by category">
+          {CATEGORIES.map((cat) => {
+            const isActive = activeCategory === cat
+            return (
+              <button
+                key={cat}
+                onClick={() => { setActiveCategory(cat); setVisibleCount(3) }}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-bold transition-all duration-200 hover:scale-105 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-[#7C63B8]"
+                style={{
+                  backgroundColor: isActive ? "#7C63B8" : "#fff",
+                  color: isActive ? "#fff" : "#3E3E3E",
+                  border: isActive ? "2px solid #7C63B8" : "2px solid #EDE8E1",
+                  fontFamily: "var(--font-nunito), Nunito, sans-serif",
+                  boxShadow: isActive ? "0 2px 8px rgba(124,99,184,0.25)" : "none",
+                }}
+                aria-pressed={isActive}
+              >
+                <span>{CATEGORY_EMOJI[cat]}</span>
+                <span>{cat}</span>
+                {!loading && (
+                  <span className="ml-0.5 text-xs px-1.5 py-0.5 rounded-full" style={{ backgroundColor: isActive ? "rgba(255,255,255,0.25)" : "rgba(124,99,184,0.1)", color: isActive ? "#fff" : "#7C63B8" }}>
+                    {cat === "All" ? articles.length : articles.filter((a) => a.category === cat).length}
+                  </span>
+                )}
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {loading ? (
-            // Loading skeletons using brand colors
             Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="rounded-2xl overflow-hidden animate-pulse" aria-hidden="true">
-                <div className="h-48 rounded-xl mb-4" style={{ backgroundColor: "#E8E3DC" }} />
-                <div className="space-y-3 p-1">
-                  <div className="h-4 rounded-full w-1/3" style={{ backgroundColor: "#E8E3DC" }} />
-                  <div className="h-5 rounded-full w-4/5" style={{ backgroundColor: "#E8E3DC" }} />
-                  <div className="h-4 rounded-full w-full" style={{ backgroundColor: "#E8E3DC" }} />
+              <div key={i} className="rounded-2xl overflow-hidden animate-pulse" style={{ backgroundColor: "#fff", border: "1.5px solid #EDE8E1" }} aria-hidden="true">
+                <div className="h-48" style={{ backgroundColor: "#EDE8E1" }} />
+                <div className="p-5 space-y-3">
+                  <div className="h-3 rounded-full w-1/3" style={{ backgroundColor: "#EDE8E1" }} />
+                  <div className="h-5 rounded-full w-4/5" style={{ backgroundColor: "#EDE8E1" }} />
+                  <div className="h-4 rounded-full w-full" style={{ backgroundColor: "#EDE8E1" }} />
                 </div>
               </div>
             ))
-          ) : articles.length > 0 ? (
-            articles.map((article) => <ArticleCard key={article.id} article={article} />)
+          ) : visible.length > 0 ? (
+            visible.map((article) => <ArticleCard key={article.id} article={article} />)
           ) : (
-            <div className="col-span-3 text-center py-12">
-              <p
-                className="text-lg"
-                style={{ color: "#B79D84", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}
-              >
-                New articles coming soon! Subscribe to be the first to know. 💬
-              </p>
+            <div className="col-span-3 text-center py-16">
+              <p className="text-4xl mb-3">{CATEGORY_EMOJI[activeCategory] ?? "📚"}</p>
+              <p className="text-lg font-semibold mb-2" style={{ color: "#222222", fontFamily: "var(--font-quicksand), Quicksand, sans-serif" }}>No {activeCategory} articles yet</p>
+              <p className="text-sm mb-6" style={{ color: "#B79D84", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}>Check back soon — we publish new content every week!</p>
+              <button onClick={() => setActiveCategory("All")} className="px-5 py-2.5 rounded-xl font-bold text-sm text-white" style={{ backgroundColor: "#F3A78E", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}>Show all articles</button>
             </div>
           )}
         </div>
+
+        {/* Load more */}
+        {!loading && hasMore && (
+          <div className="mt-10 text-center">
+            <button onClick={() => setVisibleCount((v) => v + 3)} className="px-8 py-3 rounded-xl font-bold border-2 text-sm transition-all hover:scale-105 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7C63B8]" style={{ borderColor: "#7C63B8", color: "#7C63B8", backgroundColor: "transparent", fontFamily: "var(--font-nunito), Nunito, sans-serif" }} onMouseEnter={(e) => { const b = e.currentTarget as HTMLButtonElement; b.style.backgroundColor = "#7C63B8"; b.style.color = "#fff" }} onMouseLeave={(e) => { const b = e.currentTarget as HTMLButtonElement; b.style.backgroundColor = "transparent"; b.style.color = "#7C63B8" }}>
+              Load More Articles ↓
+            </button>
+          </div>
+        )}
+
+        {!loading && !hasMore && visible.length > 0 && (
+          <div className="mt-10 text-center">
+            <p className="text-sm mb-3" style={{ color: "#B79D84", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}>Want more? New articles every week on Substack.</p>
+            <button onClick={handleReadMore} className="px-8 py-3 font-bold rounded-xl border-2 text-sm transition-all hover:scale-105 active:scale-95" style={{ borderColor: "#7C63B8", color: "#7C63B8", backgroundColor: "transparent", fontFamily: "var(--font-nunito), Nunito, sans-serif" }} onMouseEnter={(e) => { const b = e.currentTarget as HTMLButtonElement; b.style.backgroundColor = "#7C63B8"; b.style.color = "#fff" }} onMouseLeave={(e) => { const b = e.currentTarget as HTMLButtonElement; b.style.backgroundColor = "transparent"; b.style.color = "#7C63B8" }}>
+              Read all articles on Substack ✨
+            </button>
+          </div>
+        )}
+
       </div>
     </section>
   )

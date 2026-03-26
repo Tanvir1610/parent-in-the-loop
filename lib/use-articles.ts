@@ -12,6 +12,10 @@ export interface Article {
   featured: boolean
   slug: string
   substack_url: string
+  // Extended fields (present in fallback data)
+  read_time?: number
+  tags?: string[]
+  author?: string
 }
 
 export function useArticles(featured = true, limit = 3) {
@@ -38,7 +42,6 @@ export function useArticles(featured = true, limit = 3) {
         setLoading(false)
       }
     }
-
     fetchArticles()
   }, [featured, limit])
 
