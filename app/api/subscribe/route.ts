@@ -1,49 +1,62 @@
-import { createServerClient } from "@supabase/ssr"
-import { cookies } from "next/headers"
 import { type NextRequest, NextResponse } from "next/server"
+import { createSupabaseAdmin, hasSupabaseConfig } from "@/lib/supabase"
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export async function POST(request: NextRequest) {
-  const { email } = await request.json()
-
-  // Validate email
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return NextResponse.json({ error: "Valid email required" }, { status: 400 })
-  }
-
   try {
-    const cookieStore = await cookies()
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll() {
-            return cookieStore.getAll()
-          },
-          setAll(cookiesToSet) {
-            cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options))
-          },
-        },
-      },
-    )
+    const body = await request.json()
+    const email = (body?.email ?? "").trim().toLowerCase()
 
-    // Insert subscriber into database
-    const { data, error } = await supabase
-      .from("subscribers")
-      .insert([{ email, created_at: new Date() }])
-      .select()
-
-    if (error) {
-      // Handle duplicate email
-      if (error.code === "23505") {
-        return NextResponse.json({ error: "Email already subscribed" }, { status: 400 })
-      }
-      throw error
+    // --- Validation ---
+    if (!email || !EMAIL_RE.test(email)) {
+      return NextResponse.json(
+        { error: "Please provide a valid email address." },
+        { status: 400 }
+      )
+    }
+    if (email.length > 254) {
+      return NextResponse.json(
+        { error: "Email address is too long." },
+        { status: 400 }
+      )
     }
 
-    return NextResponse.json({ success: true, data })
-  } catch (error) {
-    console.error("Subscribe error:", error)
-    return NextResponse.json({ error: "Failed to subscribe" }, { status: 500 })
+    // --- Persist to Supabase using service-role key (bypasses RLS for writes) ---
+    if (hasSupabaseConfig()) {
+      const supabase = createSupabaseAdmin()
+
+      const { error } = await supabase
+        .from("subscribers")
+        .insert({ email, subscribed_at: new Date().toISOString(), source: "website" })
+
+      if (error) {
+        // Postgres unique-violation code
+        if (error.code === "23505") {
+          return NextResponse.json(
+            { error: "Email already subscribed", already_subscribed: true },
+            { status: 409 }
+          )
+        }
+        console.error("[subscribe] Supabase error:", error.message, error.code)
+        return NextResponse.json(
+          { error: "Failed to save subscription. Please try again." },
+          { status: 500 }
+        )
+      }
+    }
+
+    return NextResponse.json({ success: true, email })
+  } catch (err) {
+    console.error("[subscribe] Unexpected error:", err)
+    return NextResponse.json(
+      { error: "An unexpected error occurred. Please try again." },
+      { status: 500 }
+    )
   }
+}
+
+// Reject non-POST
+export async function GET() {
+  return NextResponse.json({ error: "Method not allowed" }, { status: 405 })
 }
