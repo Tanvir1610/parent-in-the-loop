@@ -124,7 +124,7 @@ export default function Newsletter() {
         setValidity("empty")
         setHintMsg("")
       } else {
-        setServerError(data?.error || "Something went wrong \u2014 please try again.")
+        setServerError(data?.error || "Something went wrong. Please try again.")
         setFormState("error")
       }
     } catch {
