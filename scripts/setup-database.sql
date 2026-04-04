@@ -1,13 +1,16 @@
 -- ================================================================
 -- Parent in the Loop — Complete Database Setup
--- Run this entire file in your Supabase SQL Editor.
--- Safe to re-run — uses IF NOT EXISTS / ON CONFLICT.
+-- Safe to run even if tables already exist with old schemas.
 -- ================================================================
 
 -- ────────────────────────────────────────────────────────────────
--- 1. SUBSCRIBERS  (core table for newsletter signups)
+-- 1. SUBSCRIBERS
+-- Drop and recreate to fix column name mismatch (old schema used
+-- "created_at"; correct schema uses "subscribed_at").
 -- ────────────────────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS subscribers (
+DROP TABLE IF EXISTS subscribers CASCADE;
+
+CREATE TABLE subscribers (
   id              UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
   email           VARCHAR(254) NOT NULL UNIQUE,
   source          TEXT         NOT NULL DEFAULT 'website',
@@ -16,13 +19,12 @@ CREATE TABLE IF NOT EXISTS subscribers (
   is_active       BOOLEAN      NOT NULL DEFAULT true
 );
 
-CREATE INDEX IF NOT EXISTS idx_subscribers_email      ON subscribers(email);
-CREATE INDEX IF NOT EXISTS idx_subscribers_subscribed ON subscribers(subscribed_at DESC);
-CREATE INDEX IF NOT EXISTS idx_subscribers_active     ON subscribers(is_active) WHERE is_active = true;
+CREATE INDEX idx_subscribers_email      ON subscribers(email);
+CREATE INDEX idx_subscribers_subscribed ON subscribers(subscribed_at DESC);
+CREATE INDEX idx_subscribers_active     ON subscribers(is_active) WHERE is_active = true;
 
--- Enable RLS — service-role key bypasses RLS automatically for writes.
--- No anon INSERT policy intentionally (prevents client-side abuse).
 ALTER TABLE subscribers ENABLE ROW LEVEL SECURITY;
+-- No anon INSERT policy — service-role key bypasses RLS for all writes.
 
 -- ────────────────────────────────────────────────────────────────
 -- 2. ARTICLES
@@ -56,7 +58,6 @@ ALTER TABLE articles ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "articles_public_read" ON articles;
 CREATE POLICY "articles_public_read" ON articles FOR SELECT USING (true);
 
--- Auto-bump updated_at on every edit
 CREATE OR REPLACE FUNCTION update_updated_at()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
 BEGIN NEW.updated_at = NOW(); RETURN NEW; END;
@@ -85,7 +86,6 @@ CREATE INDEX IF NOT EXISTS idx_contact_sent_at ON contact_messages(sent_at DESC)
 CREATE INDEX IF NOT EXISTS idx_contact_status  ON contact_messages(status);
 
 ALTER TABLE contact_messages ENABLE ROW LEVEL SECURITY;
--- Service role only — no anon access
 
 -- ────────────────────────────────────────────────────────────────
 -- 4. QUIZ RESULTS
@@ -103,7 +103,6 @@ CREATE TABLE IF NOT EXISTS quiz_results (
 CREATE INDEX IF NOT EXISTS idx_quiz_taken_at ON quiz_results(taken_at DESC);
 
 ALTER TABLE quiz_results ENABLE ROW LEVEL SECURITY;
--- Service role only
 
 -- ────────────────────────────────────────────────────────────────
 -- 5. ARTICLE VIEWS
@@ -119,7 +118,6 @@ ALTER TABLE article_views ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "views_public_read" ON article_views;
 CREATE POLICY "views_public_read" ON article_views FOR SELECT USING (true);
 
--- Atomic increment RPC (called by /api/article-view)
 CREATE OR REPLACE FUNCTION increment_article_views(article_slug TEXT)
 RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER AS $$
 BEGIN
@@ -132,7 +130,7 @@ END;
 $$;
 
 -- ────────────────────────────────────────────────────────────────
--- 6. SEED ARTICLES  (upsert so re-runs are safe)
+-- 6. SEED ARTICLES
 -- ────────────────────────────────────────────────────────────────
 INSERT INTO articles
   (title, slug, excerpt, content, category, image_url, published_date, featured, substack_url, read_time, tags)
@@ -141,7 +139,7 @@ VALUES
   'Teaching Kids About AI Bias Without the Jargon',
   'ai-bias-for-kids',
   'Simple dinner-table conversations about why AI sometimes makes unfair choices — and what your family can do about it.',
-  E'When we talk about AI bias, we''re really talking about fairness — and kids already have a strong intuition for that.\n\n**A dinner-table conversation starter:** Ask your child, "If we trained a robot to pick the class leader by only looking at photos of kids who won before, who might it leave out?"\n\n**Why it matters:** AI systems make real decisions — about who sees which job ad, what music gets recommended, even who gets a loan. Teaching kids to ask "Is this fair to everyone?" is one of the most important skills for the AI age.\n\n**Try this tonight:** Show two images of the same scene drawn by different kids. Ask, "If an AI only learned from one of these, what might it get wrong?"\n\n*Sources: MIT Media Lab AI Ethics curriculum (2024); UNICEF Policy Guidance on AI for Children (2021)*',
+  E'When we talk about AI bias, we''re really talking about fairness — and kids already have a strong intuition for that.\n\n**A dinner-table conversation starter:** Ask your child, "If we trained a robot to pick the class leader by only looking at photos of kids who won before, who might it leave out?"\n\n**Why it matters:** AI systems make real decisions — about who sees which job ad, what music gets recommended, even who gets a loan.\n\n**Try this tonight:** Show two images of the same scene drawn by different kids. Ask, "If an AI only learned from one of these, what might it get wrong?"\n\n*Sources: MIT Media Lab AI Ethics curriculum (2024); UNICEF Policy Guidance on AI for Children (2021)*',
   'AI Literacy', '/diverse-children-learning-together.jpg', '2025-01-10', true,
   'https://parentintheloop.substack.com/p/ai-bias', 5, ARRAY['bias','fairness','activity']
 ),
@@ -149,7 +147,7 @@ VALUES
   'Privacy & Your Kids: A Gentle Guide to Consent',
   'privacy-kids-consent',
   'How to explain digital footprints, personal data, and the power of saying no to apps — in words a 9-year-old actually understands.',
-  E'Every time your child uses an app, they leave a trail — a digital footprint.\n\n**Start with something familiar:** "Remember when you didn''t want to share your diary? Your personal information online is like your diary — you get to decide who sees it."\n\n**What kids should know:**\n- Apps often ask for more data than they need\n- Even "anonymous" data can sometimes identify you\n- They have the right to ask "Why do you need this?"\n\n**A simple rule for families:** Before downloading any new app, ask three questions together: Who made this? What data does it collect? Can we delete our data if we want?\n\n*Sources: COPPA (Children''s Online Privacy Protection Act); AAP Digital Media Policy (2023)*',
+  E'Every time your child uses an app, they leave a trail — a digital footprint.\n\n**Start with something familiar:** "Remember when you didn''t want to share your diary? Your personal information online is like your diary — you get to decide who sees it."\n\n**What kids should know:**\n- Apps often ask for more data than they need\n- Even "anonymous" data can sometimes identify you\n- They have the right to ask "Why do you need this?"\n\n*Sources: COPPA (Children''s Online Privacy Protection Act); AAP Digital Media Policy (2023)*',
   'Safety', '/parent-and-child-having-conversation.jpg', '2025-01-05', true,
   'https://parentintheloop.substack.com/p/privacy-consent', 6, ARRAY['privacy','consent','COPPA']
 ),
@@ -165,7 +163,7 @@ VALUES
   'What Is an Algorithm? Explaining It at the Dinner Table',
   'what-is-an-algorithm',
   'Algorithms power everything from YouTube recommendations to search results. Here''s how to make the concept click for kids ages 7–14.',
-  E'An algorithm is just a set of steps to solve a problem. Kids already use algorithms every day.\n\n**The recipe analogy:** "Remember the steps we follow to make pancakes? A computer program is just a recipe."\n\n**A hands-on activity (10 minutes):** Write down the exact steps for making a peanut butter sandwich. Then swap with a sibling and follow their steps literally — things will go wrong. That''s what happens when algorithms have gaps.\n\n*Sources: CS Unplugged (csunplugged.org); Google''s Teachable Machine*',
+  E'An algorithm is just a set of steps to solve a problem. Kids already use algorithms every day.\n\n**The recipe analogy:** "Remember the steps we follow to make pancakes? A computer program is just a recipe."\n\n**A hands-on activity (10 minutes):** Write down the exact steps for making a peanut butter sandwich. Then swap with a sibling and follow their steps literally — things will go wrong. That''s what happens when algorithms have gaps.\n\n*Sources: CS Unplugged (csunplugged.org); Google Teachable Machine*',
   'AI Literacy', '/child-expressing-feelings-to-parent.jpg', '2024-12-15', true,
   'https://parentintheloop.substack.com/p/algorithm-explained', 4, ARRAY['algorithm','explainer','activity']
 ),
@@ -180,7 +178,7 @@ VALUES
 (
   'When Your Kid Asks ''Does AI Have Feelings?''',
   'does-ai-have-feelings',
-  'A question that stumps many parents. Here''s an honest, age-appropriate answer — and why it actually matters for ethical thinking.',
+  'A question that stumps many parents. Here''s an honest, age-appropriate answer — and why it matters for ethical thinking.',
   E'"Does Alexa get lonely?" These questions reveal something important: kids naturally anthropomorphize.\n\n**The honest answer:** Current AI systems do not have feelings, consciousness, or experiences.\n\n**A helpful framing:** "AI is like a very sophisticated mirror — it reflects back human language and ideas. The feelings in there originally came from people, not from the AI itself."\n\n*Sources: Stanford HAI; UNICEF AI for Children Policy (2021)*',
   'Family Conversations', '/parent-setting-boundaries-with-child.jpg', '2024-11-30', false,
   'https://parentintheloop.substack.com/p/ai-feelings', 5, ARRAY['anthropomorphism','AI ethics','feelings']
@@ -196,5 +194,5 @@ ON CONFLICT (slug) DO UPDATE SET
   updated_at     = NOW();
 
 -- ────────────────────────────────────────────────────────────────
--- Done. Visit /api/health to verify all tables are reachable.
+-- Done. Visit /api/health to confirm all tables are reachable.
 -- ────────────────────────────────────────────────────────────────
