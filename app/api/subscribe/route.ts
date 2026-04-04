@@ -4,46 +4,30 @@ import { welcomeEmailHtml, welcomeEmailText } from "@/lib/emails/welcome"
 
 const EMAIL_RE = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}$/
 
-// ── Supabase client (service-role preferred, anon fallback) ────
+// Read env at REQUEST time (not module load time) so Vercel env vars are always fresh
 function getSupabaseClient() {
   const url     = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const service = process.env.SUPABASE_SERVICE_ROLE_KEY
-  const anon    = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  // Prefer service-role key (bypasses RLS). Fall back to anon key.
+  const key     = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-  if (!url) throw new Error("NEXT_PUBLIC_SUPABASE_URL is not set")
-  const key = service || anon
-  if (!key) throw new Error("No Supabase key available")
+  if (!url || !key) {
+    const missing = !url ? "NEXT_PUBLIC_SUPABASE_URL" : "SUPABASE_SERVICE_ROLE_KEY or NEXT_PUBLIC_SUPABASE_ANON_KEY"
+    throw new Error(`Missing env var: ${missing}. Add it to Vercel → Settings → Environment Variables and redeploy.`)
+  }
 
   return createClient(url, key, {
     auth: { autoRefreshToken: false, persistSession: false },
   })
 }
 
-// ── Send welcome email via Resend ──────────────────────────────
 async function sendWelcomeEmail(toEmail: string): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY
-  if (!apiKey) {
-    console.warn("[subscribe] RESEND_API_KEY not set — skipping welcome email")
+  if (!apiKey || apiKey === "re_your_api_key_here") {
+    console.warn("[subscribe] RESEND_API_KEY not configured — skipping welcome email")
     return
   }
 
-  // Determine FROM address — prefer ryan@, fallback to tanvir@, fallback to onboarding@resend.dev
-  const fromAddress =
-    process.env.EMAIL_FROM ||
-    "Parent in the Loop <ryan@supanovlabs.com>"
-
-  const payload = {
-    from: fromAddress,
-    to: [toEmail],
-    reply_to: "tanvir@supanovlabs.com",
-    subject: "You're in the Loop! Welcome to Parent in the Loop 🌱",
-    html: welcomeEmailHtml(toEmail),
-    text: welcomeEmailText(toEmail),
-    tags: [
-      { name: "type",   value: "welcome" },
-      { name: "source", value: "website" },
-    ],
-  }
+  const fromAddress = process.env.EMAIL_FROM || "Parent in the Loop <ryan@supanovlabs.com>"
 
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -51,20 +35,25 @@ async function sendWelcomeEmail(toEmail: string): Promise<void> {
       "Authorization": `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({
+      from: fromAddress,
+      to: [toEmail],
+      reply_to: "tanvir@supanovlabs.com",
+      subject: "You're in the Loop! Welcome to Parent in the Loop 🌱",
+      html: welcomeEmailHtml(toEmail),
+      text: welcomeEmailText(toEmail),
+    }),
   })
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
     console.error("[subscribe] Resend error:", res.status, err)
-    // Non-fatal — subscriber is saved, email just didn't send
   } else {
     const data = await res.json()
     console.info("[subscribe] Welcome email sent:", data.id, "→", toEmail)
   }
 }
 
-// ── POST /api/subscribe ────────────────────────────────────────
 export async function POST(request: NextRequest) {
   // 1. Parse body
   let body: Record<string, unknown>
@@ -86,9 +75,16 @@ export async function POST(request: NextRequest) {
   }
 
   // 3. Save to Supabase
+  let supabase
   try {
-    const supabase = getSupabaseClient()
+    supabase = getSupabaseClient()
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Config error"
+    console.error("[subscribe] Config error:", msg)
+    return NextResponse.json({ error: msg }, { status: 503 })
+  }
 
+  try {
     const { error } = await supabase
       .from("subscribers")
       .insert({
@@ -99,56 +95,62 @@ export async function POST(request: NextRequest) {
       })
 
     if (error) {
+      // Already subscribed
       if (error.code === "23505") {
         return NextResponse.json(
           { error: "This email is already subscribed.", already_subscribed: true },
           { status: 409 }
         )
       }
+      // Table doesn't exist — guide developer
       if (error.code === "42P01") {
-        console.error("[subscribe] Table missing — run setup-database.sql")
+        console.error("[subscribe] subscribers table missing — run setup-database.sql")
         return NextResponse.json(
-          { error: "Database not set up yet. Please run setup-database.sql in Supabase SQL Editor." },
+          { error: "Database table missing. Run setup-database.sql in Supabase SQL Editor." },
           { status: 503 }
         )
       }
+      // Column mismatch
       if (error.code === "42703") {
-        console.error("[subscribe] Column mismatch:", error.message)
+        console.error("[subscribe] Column error:", error.message)
         return NextResponse.json(
-          { error: "Database schema outdated — re-run setup-database.sql." },
+          { error: "Database schema outdated. Re-run setup-database.sql in Supabase SQL Editor." },
           { status: 503 }
         )
       }
+      // RLS blocked — anon key without INSERT policy
       if (error.code === "42501") {
-        console.error("[subscribe] RLS blocked — add SUPABASE_SERVICE_ROLE_KEY to Vercel env vars")
+        console.error("[subscribe] RLS blocked — SUPABASE_SERVICE_ROLE_KEY missing or wrong in Vercel")
         return NextResponse.json(
-          { error: "Permission error. Add SUPABASE_SERVICE_ROLE_KEY to Vercel environment variables and redeploy." },
+          { error: "Permission denied. Check that SUPABASE_SERVICE_ROLE_KEY is correct in Vercel environment variables." },
           { status: 503 }
         )
       }
+      // Invalid API key
+      if (error.code === "PGRST301" || error.message?.toLowerCase().includes("invalid api key") || error.message?.toLowerCase().includes("jwt")) {
+        console.error("[subscribe] Invalid API key:", error.message)
+        return NextResponse.json(
+          { error: "Invalid Supabase API key. Copy the exact Service Role key from Supabase → Project Settings → API → service_role (secret) and paste it into Vercel → Environment Variables as SUPABASE_SERVICE_ROLE_KEY, then redeploy." },
+          { status: 503 }
+        )
+      }
+
       console.error("[subscribe] DB error:", error.code, error.message)
-      return NextResponse.json({ error: `Database error: ${error.message}` }, { status: 500 })
+      return NextResponse.json({ error: `Database error (${error.code}): ${error.message}` }, { status: 500 })
     }
 
-    // 4. Send welcome email (non-blocking — don't fail subscribe if email fails)
+    // 4. Send welcome email (non-blocking)
     sendWelcomeEmail(email).catch((err) =>
-      console.error("[subscribe] Welcome email exception:", err)
+      console.error("[subscribe] Email error:", err)
     )
 
-    console.info("[subscribe] New subscriber saved:", email)
+    console.info("[subscribe] ✓ New subscriber:", email)
     return NextResponse.json({ success: true, email })
 
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error"
-    console.error("[subscribe] Fatal:", msg)
-
-    if (msg.includes("SUPABASE_SERVICE_ROLE_KEY") || msg.includes("No Supabase key")) {
-      return NextResponse.json(
-        { error: "Server config error: Add NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY to Vercel environment variables, then redeploy." },
-        { status: 503 }
-      )
-    }
-    return NextResponse.json({ error: `Server error: ${msg}` }, { status: 500 })
+    console.error("[subscribe] Unexpected:", msg)
+    return NextResponse.json({ error: `Unexpected error: ${msg}` }, { status: 500 })
   }
 }
 
