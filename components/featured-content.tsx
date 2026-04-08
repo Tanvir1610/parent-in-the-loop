@@ -52,7 +52,7 @@ export default function FeaturedContent() {
       <div className="max-w-6xl mx-auto">
 
         {/* Header */}
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-10 gap-6">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-10 gap-6 reveal">
           <div>
             <p className="text-xs font-bold tracking-widest uppercase mb-2" style={{ color: "#B79D84", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}>
               <span style={{ color: "#F3A78E" }}>✦</span> FEATURED
@@ -66,7 +66,7 @@ export default function FeaturedContent() {
         </div>
 
         {/* Category filter pills */}
-        <div className="flex flex-wrap gap-2 mb-10" role="group" aria-label="Filter by category">
+        <div className="flex flex-wrap gap-2 mb-10 reveal delay-100" role="group" aria-label="Filter by category">
           {CATEGORIES.map((cat) => {
             const isActive = activeCategory === cat
             return (

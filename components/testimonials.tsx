@@ -31,7 +31,7 @@ export default function Testimonials() {
       aria-label="Parent testimonials"
     >
       <div className="max-w-5xl mx-auto">
-        <div className="mb-14 text-center">
+        <div className="mb-14 text-center reveal">
           <p
             className="text-xs font-bold tracking-widest uppercase mb-3"
             style={{ color: "#B79D84", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}

@@ -74,7 +74,7 @@ export default function AIQuiz() {
       aria-label="AI literacy quiz for families"
       id="quiz"
     >
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-2xl mx-auto reveal">
         {/* Header */}
         <div className="text-center mb-8">
           <p

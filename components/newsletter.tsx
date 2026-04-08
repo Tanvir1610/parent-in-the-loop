@@ -164,7 +164,7 @@ export default function Newsletter() {
         style={{ background: "radial-gradient(circle, #B9A6E3, transparent)", transform: "translate(-20%,20%)" }}
         aria-hidden="true" />
 
-      <div className="max-w-2xl mx-auto text-center relative z-10">
+      <div className="max-w-2xl mx-auto text-center relative z-10 reveal">
 
         <div className="flex justify-center gap-2 text-2xl mb-4" aria-hidden="true">
           <span>💬</span><span>✨</span><span>🧠</span>

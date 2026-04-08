@@ -32,7 +32,7 @@ export default function Hero() {
 
       <div className="max-w-2xl mx-auto text-center space-y-8 relative z-10">
         {/* Logo + icons row */}
-        <div className="flex flex-col items-center gap-4">
+        <div className="flex flex-col items-center gap-4 reveal">
           <div className="animate-float">
             <img
               src="/images/pitl-20logo1.png"
@@ -51,7 +51,7 @@ export default function Hero() {
 
         {/* Eyebrow label */}
         <p
-          className="text-xs font-bold tracking-widest uppercase"
+          className="text-xs font-bold tracking-widest uppercase reveal delay-100"
           style={{ color: "#B79D84", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}
         >
           AI Literacy for Families
@@ -59,7 +59,7 @@ export default function Hero() {
 
         {/* Headline */}
         <h1
-          className="text-5xl md:text-6xl font-bold leading-tight"
+          className="text-5xl md:text-6xl font-bold leading-tight reveal delay-200"
           style={{ color: "#222222", fontFamily: "var(--font-quicksand), Quicksand, sans-serif" }}
         >
           Help Your Kids{" "}
@@ -75,7 +75,7 @@ export default function Hero() {
 
         {/* Mission description — warm, plain-spoken for parents */}
         <p
-          className="text-lg leading-relaxed max-w-xl mx-auto"
+          className="text-lg leading-relaxed max-w-xl mx-auto reveal delay-300"
           style={{ color: "#3E3E3E", fontFamily: "var(--font-nunito), Nunito, sans-serif", fontWeight: 400 }}
         >
           Weekly articles, family conversations, and hands-on activities that demystify AI for
@@ -84,7 +84,7 @@ export default function Hero() {
         </p>
 
         {/* CTAs */}
-        <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
+        <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4 reveal delay-400">
           <button
             className="px-8 py-3.5 font-bold rounded-xl shadow-md transition-all duration-200 hover:scale-105 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#7C63B8]"
             style={{

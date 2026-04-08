@@ -19,13 +19,11 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // Refresh session if expired
   const { data: { user } } = await supabase.auth.getUser()
-
   const { pathname } = request.nextUrl
 
-  // Protect /dashboard — redirect to login if not authenticated
-  if (pathname.startsWith("/dashboard") && !user) {
+  // Protected routes
+  if ((pathname.startsWith("/dashboard") || pathname.startsWith("/admin")) && !user) {
     return NextResponse.redirect(new URL("/login", request.url))
   }
 
@@ -38,5 +36,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/login", "/signup"],
+  matcher: ["/dashboard/:path*", "/admin/:path*", "/login", "/signup"],
 }

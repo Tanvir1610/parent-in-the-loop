@@ -65,7 +65,7 @@ export default function WeeklyTip() {
       style={{ backgroundColor: "#fff" }}
       aria-label="Weekly tip for families"
     >
-      <div className="max-w-3xl mx-auto">
+      <div className="max-w-3xl mx-auto reveal">
         {/* Label */}
         <div className="flex items-center justify-center gap-2 mb-6">
           <span className="text-xl animate-sparkle" aria-hidden="true">✨</span>
