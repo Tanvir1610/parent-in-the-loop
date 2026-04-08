@@ -3,6 +3,7 @@ import type { Metadata } from "next"
 import { Nunito, Quicksand } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import "./globals.css"
+import ScrollRevealProvider from "@/components/scroll-reveal-provider"
 
 const nunito = Nunito({
   subsets: ["latin"],
@@ -49,6 +50,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${nunito.variable} ${quicksand.variable} font-sans antialiased`}>
+        <ScrollRevealProvider />
         {children}
         <Analytics />
       </body>

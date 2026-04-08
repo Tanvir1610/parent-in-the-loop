@@ -196,3 +196,52 @@ ON CONFLICT (slug) DO UPDATE SET
 -- ────────────────────────────────────────────────────────────────
 -- Done. Visit /api/health to confirm all tables are reachable.
 -- ────────────────────────────────────────────────────────────────
+
+-- ────────────────────────────────────────────────────────────────
+-- PROGRESS TRACKER — tracks which AI concepts each user has explored
+-- ────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS user_progress (
+  id          BIGSERIAL   PRIMARY KEY,
+  user_id     UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  topic       TEXT        NOT NULL,
+  category    TEXT        NOT NULL,
+  completed   BOOLEAN     NOT NULL DEFAULT true,
+  completed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(user_id, topic)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_progress_user ON user_progress(user_id);
+
+ALTER TABLE user_progress ENABLE ROW LEVEL SECURITY;
+
+-- Users can only read/write their own progress
+DROP POLICY IF EXISTS "user_progress_select" ON user_progress;
+DROP POLICY IF EXISTS "user_progress_insert" ON user_progress;
+DROP POLICY IF EXISTS "user_progress_delete" ON user_progress;
+
+CREATE POLICY "user_progress_select" ON user_progress FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "user_progress_insert" ON user_progress FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "user_progress_delete" ON user_progress FOR DELETE USING (auth.uid() = user_id);
+
+-- ────────────────────────────────────────────────────────────────
+-- READ HISTORY — which articles each user has read
+-- ────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS read_history (
+  id        BIGSERIAL   PRIMARY KEY,
+  user_id   UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  slug      TEXT        NOT NULL,
+  title     TEXT        NOT NULL,
+  category  TEXT        NOT NULL,
+  read_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(user_id, slug)
+);
+
+CREATE INDEX IF NOT EXISTS idx_read_history_user ON read_history(user_id);
+
+ALTER TABLE read_history ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "read_history_select" ON read_history;
+DROP POLICY IF EXISTS "read_history_insert" ON read_history;
+
+CREATE POLICY "read_history_select" ON read_history FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "read_history_insert" ON read_history FOR INSERT WITH CHECK (auth.uid() = user_id);
