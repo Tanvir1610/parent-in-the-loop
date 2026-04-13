@@ -3,7 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { createSupabaseBrowserClient } from "@/lib/supabase-browser"
+import { useClerk } from "@clerk/nextjs"
 import ProgressTracker from "@/components/progress-tracker"
 
 interface Props {
@@ -15,7 +15,7 @@ interface Props {
 
 export default function DashboardClient({ user, isSubscribed, subscribedAt, isAdmin }: Props) {
   const router   = useRouter()
-  const supabase = createSupabaseBrowserClient()
+  const { signOut } = useClerk()
   const [subscribed, setSubscribed]   = useState(isSubscribed)
   const [subscribing, setSubscribing] = useState(false)
   const [subError, setSubError]       = useState("")
@@ -39,8 +39,7 @@ export default function DashboardClient({ user, isSubscribed, subscribedAt, isAd
 
   const handleSignOut = async () => {
     setSigningOut(true)
-    await supabase.auth.signOut()
-    router.push("/"); router.refresh()
+    await signOut({ redirectUrl: "/" })
   }
 
   const F  = { fontFamily: "var(--font-nunito), Nunito, sans-serif" }

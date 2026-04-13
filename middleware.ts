@@ -1,40 +1,39 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { createServerClient } from "@supabase/ssr"
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server"
+import { NextResponse } from "next/server"
 
-export async function middleware(request: NextRequest) {
-  let response = NextResponse.next({ request })
+// Routes that require authentication
+const isProtected = createRouteMatcher([
+  "/dashboard(.*)",
+  "/admin(.*)",
+])
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll()     { return request.cookies.getAll() },
-        setAll(list) {
-          list.forEach(({ name, value }) => request.cookies.set(name, value))
-          response = NextResponse.next({ request })
-          list.forEach(({ name, value, options }) => response.cookies.set(name, value, options))
-        },
-      },
-    }
-  )
+// Routes only for non-authenticated users
+const isAuthPage = createRouteMatcher([
+  "/sign-in(.*)",
+  "/sign-up(.*)",
+  "/login(.*)",
+  "/signup(.*)",
+])
 
-  const { data: { user } } = await supabase.auth.getUser()
-  const { pathname } = request.nextUrl
+export default clerkMiddleware(async (auth, request) => {
+  const { userId } = await auth()
 
-  // Protected routes
-  if ((pathname.startsWith("/dashboard") || pathname.startsWith("/admin")) && !user) {
-    return NextResponse.redirect(new URL("/login", request.url))
+  // Protect dashboard + admin — redirect to sign-in if not logged in
+  if (isProtected(request) && !userId) {
+    const signInUrl = new URL("/sign-in", request.url)
+    signInUrl.searchParams.set("redirect_url", request.url)
+    return NextResponse.redirect(signInUrl)
   }
 
-  // Redirect logged-in users away from login/signup
-  if ((pathname === "/login" || pathname === "/signup") && user) {
+  // Redirect logged-in users away from sign-in/sign-up pages
+  if (isAuthPage(request) && userId) {
     return NextResponse.redirect(new URL("/dashboard", request.url))
   }
-
-  return response
-}
+})
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/admin/:path*", "/login", "/signup"],
+  matcher: [
+    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
+    "/(api|trpc)(.*)",
+  ],
 }

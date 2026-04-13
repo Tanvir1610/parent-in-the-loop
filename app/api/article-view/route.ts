@@ -32,3 +32,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true })
   }
 }
+
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url)
+  const slug = (searchParams.get("slug") ?? "").replace(/[^a-z0-9-]/g, "").slice(0, 100)
+  if (!slug) return NextResponse.json({ views: 0 })
+  if (!hasSupabaseConfig()) return NextResponse.json({ views: 0 })
+  try {
+    const supabase = createSupabaseAdmin()
+    const { data } = await supabase
+      .from("article_views")
+      .select("views")
+      .eq("slug", slug)
+      .single()
+    return NextResponse.json({ views: data?.views ?? 0 })
+  } catch {
+    return NextResponse.json({ views: 0 })
+  }
+}

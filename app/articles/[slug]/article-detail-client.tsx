@@ -64,6 +64,7 @@ interface Props {
 export default function ArticleDetailClient({ article, related }: Props) {
   const [readProgress, setReadProgress] = useState(0)
   const [copied, setCopied] = useState(false)
+  const [viewCount, setViewCount] = useState<number | null>(null)
   const contentRef = useRef<HTMLDivElement>(null)
   const viewTracked = useRef(false)
 
@@ -76,6 +77,11 @@ export default function ArticleDetailClient({ article, related }: Props) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ slug: article.slug }),
     }).catch(() => {})
+    // Fetch current view count
+    fetch(`/api/article-view?slug=${article.slug}`)
+      .then((r) => r.json())
+      .then((d) => setViewCount((d.views ?? 0) + 1))
+      .catch(() => {})
   }, [article.slug])
   const cc = CATEGORY_COLORS[article.category] ?? { text: "#7C63B8", bg: "rgba(124,99,184,0.1)" }
 
@@ -142,6 +148,14 @@ export default function ArticleDetailClient({ article, related }: Props) {
                 <span className="text-xs" style={{ color: "#B79D84", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}>
                   {(article as ArticleData).read_time} min read
                 </span>
+              )}
+              {viewCount !== null && (
+                <>
+                  <span style={{ color: "#B79D84" }} aria-hidden="true">·</span>
+                  <span className="text-xs flex items-center gap-1" style={{ color: "#B79D84", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}>
+                    👁 {viewCount.toLocaleString()} {viewCount === 1 ? "view" : "views"}
+                  </span>
+                </>
               )}
               <time
                 dateTime={article.published_date}

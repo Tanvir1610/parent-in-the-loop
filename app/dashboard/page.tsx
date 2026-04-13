@@ -1,41 +1,48 @@
+import { auth, currentUser } from "@clerk/nextjs/server"
 import { redirect } from "next/navigation"
-import { cookies } from "next/headers"
-import { createServerClient } from "@supabase/ssr"
+import { createClient } from "@supabase/supabase-js"
 import DashboardClient from "./dashboard-client"
 
+const ADMIN_EMAILS = [
+  "tanvir@supanovlabs.com", "ryan@supanovlabs.com",
+  "vhoratanvir1610@gmail.com", "vhoratanvir1604@gmail.com",
+]
+
 export default async function DashboardPage() {
-  const cookieStore = await cookies()
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll()     { return cookieStore.getAll() },
-        setAll(list) { list.forEach(({ name, value, options }) => cookieStore.set(name, value, options)) },
-      },
-    }
-  )
+  const { userId } = await auth()
+  if (!userId) redirect("/sign-in")
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect("/login")
+  const user = await currentUser()
+  const email = user?.emailAddresses?.[0]?.emailAddress ?? ""
+  const name  = user?.firstName ? `${user.firstName} ${user.lastName ?? ""}`.trim() : ""
 
-  const [subRes] = await Promise.all([
-    supabase
-      .from("subscribers")
-      .select("id, subscribed_at, is_active")
-      .eq("email", user.email ?? "")
-      .single(),
-  ])
+  // Check subscription from Supabase
+  let isSubscribed = false
+  let subscribedAt: string | null = null
 
-  const isAdmin = ["tanvir@supanovlabs.com", "ryan@supanovlabs.com",
-    "vhoratanvir1610@gmail.com", "vhoratanvir1604@gmail.com"].includes(user.email ?? "")
+  if (email) {
+    try {
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        { auth: { autoRefreshToken: false, persistSession: false } }
+      )
+      const { data } = await supabase
+        .from("subscribers")
+        .select("id, subscribed_at, is_active")
+        .eq("email", email)
+        .single()
+      isSubscribed = !!data?.is_active
+      subscribedAt = data?.subscribed_at ?? null
+    } catch {}
+  }
 
   return (
     <DashboardClient
-      user={{ id: user.id, email: user.email ?? "", name: user.user_metadata?.full_name ?? "" }}
-      isSubscribed={!!subRes.data?.is_active}
-      subscribedAt={subRes.data?.subscribed_at ?? null}
-      isAdmin={isAdmin}
+      user={{ id: userId, email, name }}
+      isSubscribed={isSubscribed}
+      subscribedAt={subscribedAt}
+      isAdmin={ADMIN_EMAILS.includes(email)}
     />
   )
 }

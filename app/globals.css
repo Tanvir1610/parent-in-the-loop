@@ -210,3 +210,30 @@ html {
   to   { opacity: 1; transform: translateY(0); }
 }
 .count-animate { animation: countUp 0.5s ease-out forwards; }
+
+/* ── Dark Mode ─────────────────────────────────────────────── */
+.dark {
+  color-scheme: dark;
+}
+.dark body {
+  background-color: #1a1625;
+  color: #e8e4f0;
+}
+.dark [style*="background-color: #FAF6F0"],
+.dark [style*="backgroundColor: #FAF6F0"] {
+  background-color: #1a1625 !important;
+}
+.dark [style*="background-color: #fff"],
+.dark [style*="backgroundColor: #fff"] {
+  background-color: #231d35 !important;
+}
+.dark [style*="color: #222222"] {
+  color: #e8e4f0 !important;
+}
+.dark [style*="color: #3E3E3E"] {
+  color: #c4bdd8 !important;
+}
+.dark [style*="border: 1.5px solid #EDE8E1"],
+.dark [style*="borderColor: #EDE8E1"] {
+  border-color: rgba(255,255,255,0.08) !important;
+}
