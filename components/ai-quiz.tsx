@@ -1,11 +1,105 @@
 "use client"
 
 import { useState, useRef } from "react"
+import { useUser, SignInButton } from "@clerk/nextjs"
+import Link from "next/link"
 import { AI_QUIZ_QUESTIONS } from "@/lib/data"
 
 type QuizState = "idle" | "playing" | "done"
 
-export default function AIQuiz() {
+function LockedQuiz() {
+  return (
+    <section
+      className="py-16 px-4 sm:px-6 lg:px-8"
+      style={{ backgroundColor: "#FAF6F0" }}
+      id="quiz"
+      aria-label="AI Quiz — sign in required"
+    >
+      <div className="max-w-2xl mx-auto reveal">
+        <div className="text-center mb-8">
+          <span className="inline-block text-xs font-bold tracking-widest uppercase px-3 py-1 rounded-full mb-4"
+            style={{ backgroundColor: "rgba(124,99,184,0.1)", color: "#7C63B8", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}>
+            🧠 Family AI Quiz
+          </span>
+          <h2 className="text-3xl font-bold mb-3"
+            style={{ color: "#222222", fontFamily: "var(--font-quicksand), Quicksand, sans-serif" }}>
+            How AI-literate is your family?
+          </h2>
+          <p className="text-base leading-relaxed"
+            style={{ color: "#6B6B6B", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}>
+            5 fun questions to explore together — no pressure, just curiosity!
+          </p>
+        </div>
+
+        <div
+          className="rounded-3xl p-8 text-center relative overflow-hidden"
+          style={{
+            background: "linear-gradient(135deg, #fff 0%, rgba(185,166,227,0.08) 100%)",
+            border: "2px solid rgba(124,99,184,0.2)",
+          }}
+        >
+          <div
+            className="absolute top-0 right-0 w-32 h-32 rounded-full pointer-events-none opacity-20"
+            style={{ background: "radial-gradient(circle, #B9A6E3, transparent)", transform: "translate(20%,-20%)" }}
+            aria-hidden="true"
+          />
+          <div className="text-5xl mb-4" aria-hidden="true">🔒</div>
+          <h3 className="text-xl font-bold mb-2"
+            style={{ color: "#222222", fontFamily: "var(--font-quicksand), Quicksand, sans-serif" }}>
+            Sign in to take the quiz
+          </h3>
+          <p className="text-sm leading-relaxed mb-6"
+            style={{ color: "#B79D84", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}>
+            Create your free account to take the quiz, save your score, and track your progress over time.
+          </p>
+
+          {/* Preview questions */}
+          <div className="space-y-2 mb-7 text-left">
+            {["What does AI stand for?", "Can AI make mistakes?", "How does AI learn new things?"].map((q, i) => (
+              <div key={i}
+                className="flex items-center gap-3 px-4 py-3 rounded-xl"
+                style={{ backgroundColor: "#FAF6F0", border: "1px solid #EDE8E1" }}
+              >
+                <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 text-white"
+                  style={{ backgroundColor: "#B9A6E3" }}>
+                  {i + 1}
+                </span>
+                <p className="text-sm font-semibold" style={{ color: "#3E3E3E", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}>
+                  {q}
+                </p>
+                <span className="ml-auto text-base" aria-hidden="true">🔒</span>
+              </div>
+            ))}
+            <p className="text-xs text-center pt-1" style={{ color: "#B79D84", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}>
+              + 2 more questions
+            </p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <SignInButton mode="redirect">
+              <button
+                className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold text-sm text-white transition-all hover:scale-105 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7C63B8]"
+                style={{ backgroundColor: "#7C63B8", fontFamily: "var(--font-nunito), Nunito, sans-serif", boxShadow: "0 4px 14px rgba(124,99,184,0.3)" }}
+              >
+                🔓 Sign In to Take Quiz
+              </button>
+            </SignInButton>
+            <Link
+              href="/sign-up"
+              className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold text-sm border-2 transition-all hover:scale-105"
+              style={{ borderColor: "#F3A78E", color: "#F3A78E", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}
+            >
+              Create Free Account ✨
+            </Link>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function QuizContent() {
+
   const [state, setState] = useState<QuizState>("idle")
   const [current, setCurrent] = useState(0)
   const [selected, setSelected] = useState<number | null>(null)
@@ -343,4 +437,20 @@ export default function AIQuiz() {
       </div>
     </section>
   )
+}
+
+
+export default function AIQuiz() {
+  const { isSignedIn, isLoaded } = useUser()
+
+  if (!isLoaded) return (
+    <section className="py-16 px-4 sm:px-6 lg:px-8" id="quiz" style={{ backgroundColor: "#FAF6F0" }}>
+      <div className="max-w-2xl mx-auto animate-pulse">
+        <div className="h-8 w-56 rounded-full mx-auto mb-4" style={{ backgroundColor: "#EDE8E1" }} />
+        <div className="rounded-3xl h-64" style={{ backgroundColor: "#EDE8E1" }} />
+      </div>
+    </section>
+  )
+
+  return isSignedIn ? <QuizContent /> : <LockedQuiz />
 }

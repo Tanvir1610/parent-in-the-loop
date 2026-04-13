@@ -3,6 +3,8 @@
 import Link from "next/link"
 import { useState, useEffect, useRef } from "react"
 import { Search, X, Menu } from "lucide-react"
+import DarkModeToggle from "@/components/dark-mode-toggle"
+import { useUser, UserButton, SignInButton } from "@clerk/nextjs"
 
 interface SearchResult {
   id: number
@@ -157,22 +159,8 @@ export default function Navbar() {
               </button>
 
               {/* Auth + Subscribe CTAs */}
-              <Link
-                href="/login"
-                className="hidden md:block px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:scale-105 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7C63B8]"
-                style={{ color: "#7C63B8", border: "1.5px solid rgba(124,99,184,0.3)", backgroundColor: "transparent", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}
-              >
-                Sign In
-              </Link>
-              <button
-                onClick={() => scrollTo("newsletter")}
-                className="hidden md:block px-4 py-2 rounded-xl text-sm font-bold text-white transition-all hover:scale-105 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#F3A78E]"
-                style={{ backgroundColor: "#F3A78E", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#E89175" }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#F3A78E" }}
-              >
-                Subscribe Free ✨
-              </button>
+              <DarkModeToggle />
+              <NavAuthButtons scrollTo={scrollTo} />
 
               {/* Mobile menu */}
               <button
@@ -304,14 +292,7 @@ export default function Navbar() {
                 {link.label}
               </button>
             ))}
-            <Link
-              href="/login"
-              onClick={() => setMenuOpen(false)}
-              className="block w-full text-center px-4 py-3 rounded-xl font-semibold text-sm border-2 transition-colors"
-              style={{ color: "#7C63B8", borderColor: "rgba(124,99,184,0.3)", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}
-            >
-              Sign In
-            </Link>
+            <MobileAuthButton setMenuOpen={setMenuOpen} />
             <button
               onClick={() => scrollTo("newsletter")}
               className="w-full mt-1 py-3 rounded-xl text-sm font-bold text-white"
@@ -326,5 +307,78 @@ export default function Navbar() {
       {/* Spacer so content isn't hidden behind fixed nav */}
       <div className="h-16" aria-hidden="true" />
     </>
+  )
+}
+
+// ── Clerk auth state in desktop nav ────────────────────────────
+function NavAuthButtons({ scrollTo }: { scrollTo: (id: string) => void }) {
+  const { isSignedIn } = useUser()
+  return (
+    <>
+      {isSignedIn ? (
+        <div className="hidden md:flex items-center gap-3">
+          <Link
+            href="/dashboard"
+            className="px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:scale-105"
+            style={{ color: "#7C63B8", border: "1.5px solid rgba(124,99,184,0.3)", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}
+          >
+            Dashboard
+          </Link>
+          <UserButton
+            appearance={{
+              elements: {
+                avatarBox: "w-9 h-9 rounded-xl",
+                userButtonPopoverCard: "rounded-2xl shadow-xl border border-[#EDE8E1]",
+              },
+            }}
+            afterSignOutUrl="/"
+          />
+        </div>
+      ) : (
+        <div className="hidden md:flex items-center gap-3">
+          <SignInButton mode="redirect">
+            <button
+              className="px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:scale-105 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7C63B8]"
+              style={{ color: "#7C63B8", border: "1.5px solid rgba(124,99,184,0.3)", backgroundColor: "transparent", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}
+            >
+              Sign In
+            </button>
+          </SignInButton>
+          <button
+            onClick={() => scrollTo("newsletter")}
+            className="px-4 py-2 rounded-xl text-sm font-bold text-white transition-all hover:scale-105 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#F3A78E]"
+            style={{ backgroundColor: "#F3A78E", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#E89175" }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#F3A78E" }}
+          >
+            Subscribe Free ✨
+          </button>
+        </div>
+      )}
+    </>
+  )
+}
+
+// ── Clerk auth state in mobile menu ────────────────────────────
+function MobileAuthButton({ setMenuOpen }: { setMenuOpen: (v: boolean) => void }) {
+  const { isSignedIn } = useUser()
+  return isSignedIn ? (
+    <Link
+      href="/dashboard"
+      onClick={() => setMenuOpen(false)}
+      className="block w-full text-center px-4 py-3 rounded-xl font-semibold text-sm border-2 transition-colors"
+      style={{ color: "#7C63B8", borderColor: "rgba(124,99,184,0.3)", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}
+    >
+      My Dashboard
+    </Link>
+  ) : (
+    <SignInButton mode="redirect">
+      <button
+        className="block w-full text-center px-4 py-3 rounded-xl font-semibold text-sm border-2 transition-colors"
+        style={{ color: "#7C63B8", borderColor: "rgba(124,99,184,0.3)", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}
+      >
+        Sign In
+      </button>
+    </SignInButton>
   )
 }
