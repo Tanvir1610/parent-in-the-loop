@@ -2,7 +2,6 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Nunito, Quicksand } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
-import { ThemeProvider } from "next-themes"
 import "./globals.css"
 import ScrollRevealProvider from "@/components/scroll-reveal-provider"
 import { ThemeProvider } from "@/components/theme-provider"
@@ -39,16 +38,16 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <ClerkProvider>
-    <html lang="en" suppressHydrationWarning>
-      <body className={`${nunito.variable} ${quicksand.variable} font-sans antialiased`}>
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange={false}>
-          <ScrollRevealProvider />
-          {children}
-          <AIChatbot />
-          <Analytics />
-        </ThemeProvider>
-      </body>
-    </html>
+      <html lang="en" suppressHydrationWarning>
+        <body className={`${nunito.variable} ${quicksand.variable} font-sans antialiased`}>
+          <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
+            <ScrollRevealProvider />
+            {children}
+            <AIChatbot />
+            <Analytics />
+          </ThemeProvider>
+        </body>
+      </html>
     </ClerkProvider>
   )
 }
