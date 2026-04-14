@@ -99,16 +99,17 @@ export default function AIChatbot() {
 
     setInput("")
 
+    // Add user message to UI
     const userMsg: Message = { role: "user", content, id: ++msgId }
-    const next = [...messages, userMsg]
-    setMessages(next)
+    setMessages((prev) => [...prev, userMsg])
     setLoading(true)
 
     try {
+      // Send just the question directly — no need for full history
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: next.map((m) => ({ role: m.role, content: m.content })) }),
+        body: JSON.stringify({ question: content }),
       })
       const data = await res.json()
 
@@ -116,7 +117,7 @@ export default function AIChatbot() {
         ...prev,
         {
           role: "assistant",
-          content: data.message ?? "I don't have an answer for that yet. Try asking about AI, screen time, or family activities! 🌱",
+          content: data.message ?? "I don\'t have an answer for that yet. Try one of the suggestions below! 🌱",
           followups: data.followups ?? [],
           id: ++msgId,
         },
