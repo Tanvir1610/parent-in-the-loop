@@ -1,34 +1,25 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server"
 import { NextResponse } from "next/server"
 
-const isProtected = createRouteMatcher([
-  "/dashboard(.*)",
-  "/admin(.*)",
-])
-
-const isAuthPage = createRouteMatcher([
-  "/sign-in(.*)",
-  "/sign-up(.*)",
-  "/login(.*)",
-  "/signup(.*)",
-])
+const isProtected = createRouteMatcher(["/dashboard(.*)", "/admin(.*)"])
+const isAuthPage  = createRouteMatcher(["/sign-in(.*)", "/sign-up(.*)"])
 
 export default clerkMiddleware(async (auth, request) => {
-  // If Clerk keys are missing, let the request through so the site doesn't crash
-  if (!process.env.CLERK_SECRET_KEY) {
+  // Safety: if keys missing, pass through everything
+  if (!process.env.CLERK_SECRET_KEY || !process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY) {
     return NextResponse.next()
   }
 
   const { userId } = await auth()
 
   if (isProtected(request) && !userId) {
-    const signInUrl = new URL("/sign-in", request.url)
-    signInUrl.searchParams.set("redirect_url", request.url)
-    return NextResponse.redirect(signInUrl)
+    const url = new URL("/sign-in", request.url)
+    url.searchParams.set("redirect_url", request.nextUrl.pathname)
+    return NextResponse.redirect(url)
   }
 
   if (isAuthPage(request) && userId) {
-    return NextResponse.redirect(new URL("/dashboard", request.url))
+    return NextResponse.redirect(new URL("/", request.url))
   }
 })
 
