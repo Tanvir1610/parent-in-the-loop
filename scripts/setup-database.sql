@@ -245,3 +245,23 @@ DROP POLICY IF EXISTS "read_history_insert" ON read_history;
 
 CREATE POLICY "read_history_select" ON read_history FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "read_history_insert" ON read_history FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+-- ────────────────────────────────────────────────────────────────
+-- CHATBOT Q&A — Admin-managed questions and answers
+-- Optional: add rows here to extend chatbot without code changes.
+-- ────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS chatbot_qa (
+  id          BIGSERIAL    PRIMARY KEY,
+  question    TEXT         NOT NULL,
+  answer      TEXT         NOT NULL,
+  keywords    TEXT[]       NOT NULL DEFAULT '{}',
+  followups   TEXT[]                DEFAULT '{}',
+  category    TEXT                  DEFAULT 'General',
+  active      BOOLEAN      NOT NULL DEFAULT true,
+  created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE chatbot_qa ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "chatbot_qa_public_read" ON chatbot_qa;
+CREATE POLICY "chatbot_qa_public_read" ON chatbot_qa FOR SELECT USING (active = true);
