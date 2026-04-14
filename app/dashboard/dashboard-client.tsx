@@ -39,7 +39,9 @@ export default function DashboardClient({ user, isSubscribed, subscribedAt, isAd
 
   const handleSignOut = async () => {
     setSigningOut(true)
-    await signOut({ redirectUrl: "/" })
+    await signOut()
+    router.push("/")
+    router.refresh()
   }
 
   const F  = { fontFamily: "var(--font-nunito), Nunito, sans-serif" }
