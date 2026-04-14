@@ -4,7 +4,7 @@ import Link from "next/link"
 import { useState, useEffect, useRef } from "react"
 import { Search, X, Menu } from "lucide-react"
 import DarkModeToggle from "@/components/dark-mode-toggle"
-import { useUser, UserButton, SignInButton } from "@clerk/nextjs"
+import { useUser, UserButton } from "@clerk/nextjs"
 
 interface SearchResult {
   id: number
@@ -336,14 +336,13 @@ function NavAuthButtons({ scrollTo }: { scrollTo: (id: string) => void }) {
         </div>
       ) : (
         <div className="hidden md:flex items-center gap-3">
-          <SignInButton mode="redirect">
-            <button
-              className="px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:scale-105 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7C63B8]"
-              style={{ color: "#7C63B8", border: "1.5px solid rgba(124,99,184,0.3)", backgroundColor: "transparent", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}
-            >
-              Sign In
-            </button>
-          </SignInButton>
+          <Link
+            href="/sign-in"
+            className="px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:scale-105 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7C63B8]"
+            style={{ color: "#7C63B8", border: "1.5px solid rgba(124,99,184,0.3)", backgroundColor: "transparent", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}
+          >
+            Sign In
+          </Link>
           <button
             onClick={() => scrollTo("newsletter")}
             className="px-4 py-2 rounded-xl text-sm font-bold text-white transition-all hover:scale-105 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#F3A78E]"
@@ -372,13 +371,13 @@ function MobileAuthButton({ setMenuOpen }: { setMenuOpen: (v: boolean) => void }
       My Dashboard
     </Link>
   ) : (
-    <SignInButton mode="redirect">
-      <button
-        className="block w-full text-center px-4 py-3 rounded-xl font-semibold text-sm border-2 transition-colors"
-        style={{ color: "#7C63B8", borderColor: "rgba(124,99,184,0.3)", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}
-      >
-        Sign In
-      </button>
-    </SignInButton>
+    <Link
+      href="/sign-in"
+      onClick={() => setMenuOpen(false)}
+      className="block w-full text-center px-4 py-3 rounded-xl font-semibold text-sm border-2 transition-colors"
+      style={{ color: "#7C63B8", borderColor: "rgba(124,99,184,0.3)", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}
+    >
+      Sign In
+    </Link>
   )
 }

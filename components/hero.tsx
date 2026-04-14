@@ -94,7 +94,7 @@ export default function Hero() {
             }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#E89175" }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#F3A78E" }}
-            onClick={() => document.getElementById("newsletter")?.scrollIntoView({ behavior: "smooth" })}
+            onClick={() => window.location.href = "/sign-up"}
             aria-label="Subscribe to our weekly newsletter"
           >
             Subscribe — It&apos;s Free ✨

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef } from "react"
-import { useUser, SignInButton } from "@clerk/nextjs"
+import { useUser } from "@clerk/nextjs"
 import Link from "next/link"
 import { AI_QUIZ_QUESTIONS } from "@/lib/data"
 
@@ -76,14 +76,12 @@ function LockedQuiz() {
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <SignInButton mode="redirect">
-              <button
+            <Link href="/sign-in"
                 className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold text-sm text-white transition-all hover:scale-105 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7C63B8]"
                 style={{ backgroundColor: "#7C63B8", fontFamily: "var(--font-nunito), Nunito, sans-serif", boxShadow: "0 4px 14px rgba(124,99,184,0.3)" }}
               >
                 🔓 Sign In to Take Quiz
-              </button>
-            </SignInButton>
+              </Link>
             <Link
               href="/sign-up"
               className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold text-sm border-2 transition-all hover:scale-105"
