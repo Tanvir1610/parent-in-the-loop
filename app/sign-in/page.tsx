@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, Suspense } from "react"
-import { useSignIn } from "@clerk/nextjs"
+import { useState, useEffect, Suspense } from "react"
+import { useSignIn, useUser } from "@clerk/nextjs"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 
@@ -18,32 +18,44 @@ const GoogleIcon = () => (
 )
 
 function SignInForm() {
-  const { isLoaded, signIn, setActive } = useSignIn()
+  const { isLoaded: signInLoaded, signIn, setActive } = useSignIn()
+  const { isLoaded: userLoaded, isSignedIn } = useUser()
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirectTo = searchParams.get("redirect_url") || "/"
 
-  const [email, setEmail]       = useState("")
+  const [email, setEmail]     = useState("")
   const [password, setPassword] = useState("")
   const [showPass, setShowPass] = useState(false)
   const [loading, setLoading]   = useState(false)
   const [error, setError]       = useState("")
-  const [success, setSuccess]   = useState(false)
-  const [focusedField, setFocused] = useState<string | null>(null)
+  const [focused, setFocused]   = useState<string | null>(null)
+
+  // If already signed in, redirect immediately
+  useEffect(() => {
+    if (userLoaded && isSignedIn) {
+      router.replace(redirectTo)
+    }
+  }, [userLoaded, isSignedIn, redirectTo, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!isLoaded || loading) return
+    if (!signInLoaded || loading) return
     if (!email.trim()) { setError("Please enter your email address."); return }
     if (!password)     { setError("Please enter your password."); return }
 
     setLoading(true); setError("")
     try {
-      const result = await signIn.create({ identifier: email.trim().toLowerCase(), password })
+      const result = await signIn.create({
+        identifier: email.trim().toLowerCase(),
+        password,
+      })
+
       if (result.status === "complete") {
+        // Set the active session FIRST, then navigate
         await setActive({ session: result.createdSessionId })
-        setSuccess(true)
-        setTimeout(() => { router.push(redirectTo); router.refresh() }, 600)
+        // Use replace so back button doesn't return to sign-in
+        router.replace(redirectTo)
       } else {
         setError("Sign in could not be completed. Please try again.")
       }
@@ -63,11 +75,11 @@ function SignInForm() {
   }
 
   const handleGoogle = async () => {
-    if (!isLoaded) return
+    if (!signInLoaded) return
     try {
       await signIn.authenticateWithRedirect({
         strategy: "oauth_google",
-        redirectUrl: "/sso-callback",
+        redirectUrl: `${window.location.origin}/sso-callback`,
         redirectUrlComplete: redirectTo,
       })
     } catch {
@@ -75,52 +87,45 @@ function SignInForm() {
     }
   }
 
-  if (success) return (
-    <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "#FAF6F0" }}>
-      <div className="text-center">
-        <div className="text-6xl mb-4">✅</div>
-        <p className="text-xl font-bold" style={{ color: "#222222", ...FQ }}>Signed in!</p>
-        <p className="text-sm mt-2" style={{ color: "#B79D84", ...F }}>Redirecting you…</p>
-      </div>
-    </div>
-  )
-
   const inputStyle = (field: string) => ({
     backgroundColor: "#FAF6F0",
-    border: `1.5px solid ${focusedField === field ? "#7C63B8" : "#EDE8E1"}`,
-    boxShadow: focusedField === field ? "0 0 0 3px rgba(124,99,184,0.1)" : "none",
-    color: "#222222",
-    outline: "none",
-    ...F,
+    border: `1.5px solid ${focused === field ? "#7C63B8" : "#EDE8E1"}`,
+    boxShadow: focused === field ? "0 0 0 3px rgba(124,99,184,0.1)" : "none",
+    color: "#222222", outline: "none", ...F,
+    transition: "border-color 0.15s, box-shadow 0.15s",
   })
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row" style={{ backgroundColor: "#FAF6F0" }}>
 
       {/* ── Left brand panel (desktop) ── */}
-      <div className="hidden md:flex md:w-5/12 flex-col items-center justify-center px-12 py-16 relative overflow-hidden"
-        style={{ background: "linear-gradient(155deg, #7C63B8 0%, #B9A6E3 100%)" }}>
-        <div className="absolute top-0 right-0 w-72 h-72 rounded-full opacity-20 pointer-events-none"
-          style={{ background: "radial-gradient(circle, #F4D78B, transparent)", transform: "translate(30%,-30%)" }} />
-        <div className="absolute bottom-0 left-0 w-56 h-56 rounded-full opacity-15 pointer-events-none"
-          style={{ background: "radial-gradient(circle, #F3A78E, transparent)", transform: "translate(-30%,30%)" }} />
+      <div className="hidden md:flex md:w-5/12 lg:w-2/5 flex-col items-center justify-center px-10 lg:px-14 py-16 relative overflow-hidden"
+        style={{ background: "linear-gradient(155deg, #7C63B8 0%, #9B8AC4 50%, #B9A6E3 100%)" }}>
+        <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
+          <div className="absolute top-0 right-0 w-72 h-72 rounded-full opacity-15"
+            style={{ background: "radial-gradient(circle, #F4D78B, transparent)", transform: "translate(30%,-30%)" }} />
+          <div className="absolute bottom-0 left-0 w-56 h-56 rounded-full opacity-10"
+            style={{ background: "radial-gradient(circle, #F3A78E, transparent)", transform: "translate(-30%,30%)" }} />
+        </div>
         <div className="relative z-10 text-center max-w-xs">
-          <img src="/images/pitl-20logo1.png" alt="" className="w-20 h-20 object-contain mx-auto mb-6" />
+          <img src="/images/pitl-20logo1.png" alt="" className="w-20 h-20 object-contain mx-auto mb-6 rounded-2xl"
+            style={{ backgroundColor: "rgba(255,255,255,0.15)", padding: "8px" }} />
           <h2 className="text-2xl font-bold text-white mb-3" style={FQ}>Parent in the Loop</h2>
-          <p className="text-sm leading-relaxed mb-8" style={{ color: "rgba(255,255,255,0.8)", ...F }}>
+          <p className="text-sm leading-relaxed mb-8" style={{ color: "rgba(255,255,255,0.82)", ...F }}>
             Helping families build AI literacy through honest conversations, fun activities, and weekly insights.
           </p>
           <div className="space-y-3 text-left">
             {[
-              "🔓 Unlock weekly AI family tips",
-              "🧠 Take the interactive AI quiz",
-              "📊 Track your learning journey",
-              "🤖 Chat with our AI assistant",
-            ].map((item) => (
-              <p key={item} className="text-sm flex items-center gap-2"
-                style={{ color: "rgba(255,255,255,0.9)", ...F }}>
-                {item}
-              </p>
+              { icon: "🔓", text: "Unlock This Week's Family Tip" },
+              { icon: "🧠", text: "Take the interactive AI quiz" },
+              { icon: "📊", text: "Track your learning journey" },
+              { icon: "🤖", text: "Chat with our AI assistant" },
+            ].map(({ icon, text }) => (
+              <div key={text} className="flex items-center gap-2.5 text-sm"
+                style={{ color: "rgba(255,255,255,0.92)", ...F }}>
+                <span className="text-base">{icon}</span>
+                <span>{text}</span>
+              </div>
             ))}
           </div>
         </div>
@@ -128,7 +133,6 @@ function SignInForm() {
 
       {/* ── Right form panel ── */}
       <div className="flex-1 flex flex-col items-center justify-center px-4 sm:px-8 py-12">
-
         {/* Mobile logo */}
         <div className="md:hidden text-center mb-8">
           <Link href="/" className="inline-flex flex-col items-center gap-1">
@@ -138,8 +142,10 @@ function SignInForm() {
         </div>
 
         <div className="w-full max-w-sm">
-          <Link href="/" className="inline-flex items-center gap-1 text-xs font-semibold mb-6 hover:underline"
-            style={{ color: "#B79D84", ...F }}>← Back to home</Link>
+          <Link href="/" className="inline-flex items-center gap-1.5 text-xs font-semibold mb-7 hover:underline"
+            style={{ color: "#B79D84", ...F }}>
+            ← Back to home
+          </Link>
 
           <h1 className="text-2xl font-bold mb-1" style={{ color: "#222222", ...FQ }}>Welcome back 👋</h1>
           <p className="text-sm mb-7" style={{ color: "#B79D84", ...F }}>
@@ -147,7 +153,7 @@ function SignInForm() {
           </p>
 
           {/* Google */}
-          <button onClick={handleGoogle} disabled={!isLoaded || loading}
+          <button onClick={handleGoogle} disabled={!signInLoaded || loading}
             className="w-full flex items-center justify-center gap-3 py-3.5 rounded-xl font-semibold text-sm mb-5 transition-all hover:shadow-md hover:scale-[1.01] active:scale-[0.99] disabled:opacity-60"
             style={{ backgroundColor: "#fff", border: "1.5px solid #EDE8E1", color: "#3E3E3E", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", ...F }}>
             <GoogleIcon />
@@ -161,9 +167,10 @@ function SignInForm() {
           </div>
 
           {error && (
-            <div className="flex gap-2 rounded-xl px-4 py-3 mb-4 text-sm" role="alert"
+            <div className="flex gap-2 items-start rounded-xl px-4 py-3 mb-5 text-sm" role="alert"
               style={{ backgroundColor: "rgba(243,167,142,0.12)", border: "1px solid rgba(243,167,142,0.5)", color: "#c97a5a", ...F }}>
-              <span>⚠️</span><span>{error}</span>
+              <span className="flex-shrink-0 mt-0.5">⚠️</span>
+              <span>{error}</span>
             </div>
           )}
 
@@ -176,7 +183,7 @@ function SignInForm() {
                 onChange={(e) => { setEmail(e.target.value); setError("") }}
                 onFocus={() => setFocused("email")} onBlur={() => setFocused(null)}
                 placeholder="you@email.com" disabled={loading}
-                className="w-full px-4 py-3 rounded-xl text-sm transition-all disabled:opacity-60"
+                className="w-full px-4 py-3 rounded-xl text-sm disabled:opacity-60"
                 style={inputStyle("email")}
               />
             </div>
@@ -194,19 +201,19 @@ function SignInForm() {
                   onChange={(e) => { setPassword(e.target.value); setError("") }}
                   onFocus={() => setFocused("pass")} onBlur={() => setFocused(null)}
                   placeholder="••••••••" disabled={loading}
-                  className="w-full px-4 py-3 pr-20 rounded-xl text-sm transition-all disabled:opacity-60"
+                  className="w-full px-4 py-3 pr-16 rounded-xl text-sm disabled:opacity-60"
                   style={inputStyle("pass")}
                 />
                 <button type="button" onClick={() => setShowPass(!showPass)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold hover:underline"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold hover:underline px-1"
                   style={{ color: "#B79D84", ...F }}>
                   {showPass ? "Hide" : "Show"}
                 </button>
               </div>
             </div>
 
-            <button type="submit" disabled={loading || !isLoaded || !email || !password}
-              className="w-full py-3.5 rounded-xl font-bold text-sm text-white transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+            <button type="submit" disabled={loading || !signInLoaded || !email || !password}
+              className="w-full py-3.5 rounded-xl font-bold text-sm text-white transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 mt-2"
               style={{ backgroundColor: "#7C63B8", boxShadow: "0 4px 14px rgba(124,99,184,0.3)", ...F }}>
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
