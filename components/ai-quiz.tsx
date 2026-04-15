@@ -8,12 +8,19 @@ import { AI_QUIZ_QUESTIONS } from "@/lib/data"
 type QuizState = "idle" | "playing" | "done"
 
 function LockedQuiz() {
+  const PREVIEW_QUESTIONS = [
+    "What does AI stand for?",
+    "Can AI make mistakes?",
+    "How does AI learn new things?",
+    "Is all screen time equally harmful?",
+    "Can kids help make AI more fair?",
+  ]
   return (
     <section
       className="py-16 px-4 sm:px-6 lg:px-8"
       style={{ backgroundColor: "#FAF6F0" }}
       id="quiz"
-      aria-label="AI Quiz — sign in required"
+      aria-label="AI Quiz — sign in to unlock"
     >
       <div className="max-w-2xl mx-auto reveal">
         <div className="text-center mb-8">
@@ -31,64 +38,51 @@ function LockedQuiz() {
           </p>
         </div>
 
-        <div
-          className="rounded-3xl p-8 text-center relative overflow-hidden"
-          style={{
-            background: "linear-gradient(135deg, #fff 0%, rgba(185,166,227,0.08) 100%)",
-            border: "2px solid rgba(124,99,184,0.2)",
-          }}
-        >
-          <div
-            className="absolute top-0 right-0 w-32 h-32 rounded-full pointer-events-none opacity-20"
-            style={{ background: "radial-gradient(circle, #B9A6E3, transparent)", transform: "translate(20%,-20%)" }}
-            aria-hidden="true"
-          />
-          <div className="text-5xl mb-4" aria-hidden="true">🔒</div>
-          <h3 className="text-xl font-bold mb-2"
-            style={{ color: "#222222", fontFamily: "var(--font-quicksand), Quicksand, sans-serif" }}>
-            Sign in to take the quiz
-          </h3>
-          <p className="text-sm leading-relaxed mb-6"
-            style={{ color: "#B79D84", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}>
-            Create your free account to take the quiz, save your score, and track your progress over time.
-          </p>
+        <div className="rounded-3xl overflow-hidden"
+          style={{ border: "2px solid rgba(124,99,184,0.15)", backgroundColor: "#fff" }}>
 
-          {/* Preview questions */}
-          <div className="space-y-2 mb-7 text-left">
-            {["What does AI stand for?", "Can AI make mistakes?", "How does AI learn new things?"].map((q, i) => (
-              <div key={i}
-                className="flex items-center gap-3 px-4 py-3 rounded-xl"
-                style={{ backgroundColor: "#FAF6F0", border: "1px solid #EDE8E1" }}
-              >
-                <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 text-white"
-                  style={{ backgroundColor: "#B9A6E3" }}>
-                  {i + 1}
-                </span>
-                <p className="text-sm font-semibold" style={{ color: "#3E3E3E", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}>
-                  {q}
-                </p>
-                <span className="ml-auto text-base" aria-hidden="true">🔒</span>
-              </div>
-            ))}
-            <p className="text-xs text-center pt-1" style={{ color: "#B79D84", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}>
-              + 2 more questions
-            </p>
+          {/* Preview questions — blurred */}
+          <div className="px-6 pt-6 pb-4">
+            <div className="space-y-3" style={{ filter: "blur(3px)", userSelect: "none", pointerEvents: "none" }} aria-hidden="true">
+              {PREVIEW_QUESTIONS.map((q, i) => (
+                <div key={i} className="flex items-center gap-3 px-4 py-3.5 rounded-xl"
+                  style={{ backgroundColor: "#FAF6F0", border: "1px solid #EDE8E1" }}>
+                  <span className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 text-white"
+                    style={{ backgroundColor: "#B9A6E3" }}>{i + 1}</span>
+                  <p className="text-sm font-semibold" style={{ color: "#3E3E3E", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}>{q}</p>
+                  <span className="ml-auto flex-shrink-0">🔒</span>
+                </div>
+              ))}
+            </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Link href="/sign-in"
-                className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold text-sm text-white transition-all hover:scale-105 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7C63B8]"
-                style={{ backgroundColor: "#7C63B8", fontFamily: "var(--font-nunito), Nunito, sans-serif", boxShadow: "0 4px 14px rgba(124,99,184,0.3)" }}
-              >
-                🔓 Sign In to Take Quiz
+          {/* CTA */}
+          <div className="px-6 py-6 text-center"
+            style={{ backgroundColor: "rgba(124,99,184,0.04)", borderTop: "1px solid rgba(124,99,184,0.1)" }}>
+            <div className="inline-flex items-center justify-center w-12 h-12 rounded-full mb-4"
+              style={{ backgroundColor: "rgba(124,99,184,0.1)" }}>
+              <span className="text-xl">🔒</span>
+            </div>
+            <h3 className="font-bold text-lg mb-1"
+              style={{ color: "#222222", fontFamily: "var(--font-quicksand), Quicksand, sans-serif" }}>
+              Sign in to take the quiz
+            </h3>
+            <p className="text-sm mb-5"
+              style={{ color: "#B79D84", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}>
+              Free account · See your score · Track your progress over time
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Link href="/sign-up"
+                className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold text-sm text-white transition-all hover:scale-105 active:scale-95"
+                style={{ backgroundColor: "#7C63B8", fontFamily: "var(--font-nunito), Nunito, sans-serif", boxShadow: "0 4px 14px rgba(124,99,184,0.3)" }}>
+                🔓 Join Free & Take the Quiz
               </Link>
-            <Link
-              href="/sign-up"
-              className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold text-sm border-2 transition-all hover:scale-105"
-              style={{ borderColor: "#F3A78E", color: "#F3A78E", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}
-            >
-              Create Free Account ✨
-            </Link>
+              <Link href="/sign-in"
+                className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm border-2 transition-all hover:scale-105"
+                style={{ borderColor: "rgba(124,99,184,0.3)", color: "#7C63B8", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}>
+                Sign In
+              </Link>
+            </div>
           </div>
         </div>
       </div>

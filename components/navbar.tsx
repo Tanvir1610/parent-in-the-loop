@@ -312,7 +312,7 @@ export default function Navbar() {
 
 // ── Clerk auth state in desktop nav ────────────────────────────
 function NavAuthButtons({ scrollTo }: { scrollTo: (id: string) => void }) {
-  const { isSignedIn } = useUser()
+  const { isSignedIn, user } = useUser()
   return (
     <>
       {isSignedIn ? (
@@ -322,12 +322,12 @@ function NavAuthButtons({ scrollTo }: { scrollTo: (id: string) => void }) {
             className="px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:scale-105"
             style={{ color: "#7C63B8", border: "1.5px solid rgba(124,99,184,0.3)", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}
           >
-            Dashboard
+            My Dashboard
           </Link>
           <UserButton
             appearance={{
               elements: {
-                avatarBox: "w-9 h-9 rounded-xl",
+                avatarBox: "w-9 h-9 rounded-xl border-2",
                 userButtonPopoverCard: "rounded-2xl shadow-xl border border-[#EDE8E1]",
               },
             }}
@@ -335,7 +335,7 @@ function NavAuthButtons({ scrollTo }: { scrollTo: (id: string) => void }) {
           />
         </div>
       ) : (
-        <div className="hidden md:flex items-center gap-3">
+        <div className="hidden md:flex items-center gap-2">
           <Link
             href="/sign-in"
             className="px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:scale-105 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7C63B8]"
@@ -343,15 +343,13 @@ function NavAuthButtons({ scrollTo }: { scrollTo: (id: string) => void }) {
           >
             Sign In
           </Link>
-          <button
-            onClick={() => scrollTo("newsletter")}
+          <Link
+            href="/sign-up"
             className="px-4 py-2 rounded-xl text-sm font-bold text-white transition-all hover:scale-105 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#F3A78E]"
-            style={{ backgroundColor: "#F3A78E", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#E89175" }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#F3A78E" }}
+            style={{ backgroundColor: "#F3A78E", fontFamily: "var(--font-nunito), Nunito, sans-serif", boxShadow: "0 2px 8px rgba(243,167,142,0.4)" }}
           >
-            Subscribe Free ✨
-          </button>
+            Join Free ✨
+          </Link>
         </div>
       )}
     </>
@@ -371,13 +369,23 @@ function MobileAuthButton({ setMenuOpen }: { setMenuOpen: (v: boolean) => void }
       My Dashboard
     </Link>
   ) : (
-    <Link
-      href="/sign-in"
-      onClick={() => setMenuOpen(false)}
-      className="block w-full text-center px-4 py-3 rounded-xl font-semibold text-sm border-2 transition-colors"
-      style={{ color: "#7C63B8", borderColor: "rgba(124,99,184,0.3)", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}
-    >
-      Sign In
-    </Link>
+    <div className="space-y-2">
+      <Link
+        href="/sign-in"
+        onClick={() => setMenuOpen(false)}
+        className="block w-full text-center px-4 py-3 rounded-xl font-semibold text-sm border-2 transition-colors hover:bg-[#7C63B8]/5"
+        style={{ color: "#7C63B8", borderColor: "rgba(124,99,184,0.3)", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}
+      >
+        Sign In
+      </Link>
+      <Link
+        href="/sign-up"
+        onClick={() => setMenuOpen(false)}
+        className="block w-full text-center px-4 py-3 rounded-xl font-bold text-sm text-white transition-colors"
+        style={{ backgroundColor: "#F3A78E", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}
+      >
+        Join Free ✨
+      </Link>
+    </div>
   )
 }

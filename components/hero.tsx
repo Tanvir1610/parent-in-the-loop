@@ -95,9 +95,9 @@ export default function Hero() {
             onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#E89175" }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#F3A78E" }}
             onClick={() => window.location.href = "/sign-up"}
-            aria-label="Subscribe to our weekly newsletter"
+            aria-label="Join Parent in the Loop for free"
           >
-            Subscribe — It&apos;s Free ✨
+            Join Free — Unlock Everything ✨
           </button>
           <button
             className="px-8 py-3.5 font-bold rounded-xl border-2 transition-all duration-200 hover:scale-105 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#7C63B8]"
