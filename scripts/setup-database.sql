@@ -265,3 +265,17 @@ ALTER TABLE chatbot_qa ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "chatbot_qa_public_read" ON chatbot_qa;
 CREATE POLICY "chatbot_qa_public_read" ON chatbot_qa FOR SELECT USING (active = true);
+
+-- ── User Streaks ─────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS user_streaks (
+  id               BIGSERIAL    PRIMARY KEY,
+  user_id          TEXT         NOT NULL UNIQUE,
+  current_streak   INTEGER      NOT NULL DEFAULT 0,
+  longest_streak   INTEGER      NOT NULL DEFAULT 0,
+  last_visit_date  DATE,
+  total_days       INTEGER      NOT NULL DEFAULT 0,
+  created_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+  updated_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+ALTER TABLE user_streaks ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "users_own_streak" ON user_streaks USING (auth.uid()::text = user_id);

@@ -1,3 +1,13 @@
 {
-  "installCommand": "pnpm install --no-frozen-lockfile --strict-peer-dependencies=false"
+  "installCommand": "pnpm install --no-frozen-lockfile --strict-peer-dependencies=false",
+  "framework": "nextjs",
+  "cleanUrls": true,
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" }
+      ]
+    }
+  ]
 }
