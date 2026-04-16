@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 
-type FormState = "idle" | "loading" | "success" | "duplicate" | "error"
+type FormState = "idle" | "loading" | "success" | "pending_verification" | "duplicate" | "error"
 type EmailValidity = "empty" | "typing" | "invalid" | "checking" | "valid"
 
 const EMAIL_RE = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}$/
@@ -14,7 +14,11 @@ function quickCheck(email: string): "empty" | "typing" | "format_invalid" | "may
   return "maybe_valid"
 }
 
-export default function Newsletter() {
+interface NewsletterProps {
+  verifiedParam?: string | null
+}
+
+export default function Newsletter({ verifiedParam }: NewsletterProps) {
   const [email, setEmail]         = useState("")
   const [touched, setTouched]     = useState(false)
   const [validity, setValidity]   = useState<EmailValidity>("empty")
@@ -25,6 +29,13 @@ export default function Newsletter() {
   const debounceRef  = useRef<ReturnType<typeof setTimeout> | null>(null)
   const inputRef     = useRef<HTMLInputElement>(null)
   const abortRef     = useRef<AbortController | null>(null)
+
+  // ── Handle redirect back from email verification link ────────
+  useEffect(() => {
+    if (verifiedParam === "success" || verifiedParam === "already") {
+      setFormState("success")
+    }
+  }, [verifiedParam])
 
   // ── Real-time validation pipeline ────────────────────────────
   useEffect(() => {
@@ -118,7 +129,7 @@ export default function Newsletter() {
       if (res.status === 409 || data?.already_subscribed) {
         setFormState("duplicate")
       } else if (res.ok && data?.success) {
-        setFormState("success")
+        setFormState(data?.pending_verification ? "pending_verification" : "success")
         setEmail("")
         setTouched(false)
         setValidity("empty")
@@ -183,7 +194,27 @@ export default function Newsletter() {
           No jargon. No hype. Evidence-based guidance you can use tonight.
         </p>
 
-        {/* ── SUCCESS ── */}
+        {/* ── PENDING VERIFICATION ── */}
+        {formState === "pending_verification" && (
+          <div className="rounded-2xl p-8 text-center"
+            style={{ backgroundColor: "rgba(255,255,255,0.2)", border: "1.5px solid rgba(255,255,255,0.35)" }}
+            role="alert" aria-live="polite">
+            <div className="text-5xl mb-3">📬</div>
+            <h3 className="text-xl font-bold text-white mb-2"
+              style={{ fontFamily: "var(--font-quicksand), Quicksand, sans-serif" }}>
+              Check your inbox!
+            </h3>
+            <p style={{ color: "rgba(255,255,255,0.9)", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}>
+              We sent a confirmation link to your email.<br />
+              <strong className="text-white">Click it to complete your subscription</strong> and receive your welcome email. 🌱
+            </p>
+            <p className="mt-3 text-sm" style={{ color: "rgba(255,255,255,0.65)", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}>
+              Don&apos;t see it? Check your spam folder.
+            </p>
+          </div>
+        )}
+
+        {/* ── SUCCESS (after email verified via ?verified=success) ── */}
         {formState === "success" && (
           <div className="rounded-2xl p-8 text-center"
             style={{ backgroundColor: "rgba(255,255,255,0.2)", border: "1.5px solid rgba(255,255,255,0.35)" }}
@@ -191,11 +222,11 @@ export default function Newsletter() {
             <div className="text-5xl mb-3">🎉</div>
             <h3 className="text-xl font-bold text-white mb-2"
               style={{ fontFamily: "var(--font-quicksand), Quicksand, sans-serif" }}>
-              You&apos;re in!
+              You&apos;re in the Loop!
             </h3>
             <p style={{ color: "rgba(255,255,255,0.9)", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}>
-              Welcome to the Parent in the Loop community. 🌱<br />
-              Your first weekly AI wisdom arrives next week — check your inbox!
+              Your email is confirmed. Welcome to the community! 🌱<br />
+              Your welcome email is on its way — check your inbox.
             </p>
           </div>
         )}
@@ -219,7 +250,7 @@ export default function Newsletter() {
         )}
 
         {/* ── FORM ── */}
-        {formState !== "success" && formState !== "duplicate" && (
+        {formState !== "success" && formState !== "pending_verification" && formState !== "duplicate" && (
           <form onSubmit={handleSubmit} noValidate aria-label="Email subscription form" className="w-full">
             <div className="max-w-md mx-auto space-y-3">
 
