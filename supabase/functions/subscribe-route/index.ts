@@ -15,7 +15,7 @@ async function sendVerificationEmail(to: string, token: string) {
   const resendKey = process.env.RESEND_API_KEY
   if (!resendKey) { console.warn("[email] RESEND_API_KEY not set"); return }
 
-  const siteUrl   = process.env.NEXT_PUBLIC_SITE_URL || "https://parentintheloop.com"
+  const siteUrl   = process.env.NEXT_PUBLIC_SITE_URL || "https://parent-in-the-loop.vercel.app/"
   const verifyUrl = `${siteUrl}/api/verify-email?token=${token}`
   const fromEmail = process.env.EMAIL_FROM || "onboarding@resend.dev"
 
@@ -31,7 +31,7 @@ async function sendVerificationEmail(to: string, token: string) {
 <div class="url-box">Button not working? Copy and paste this into your browser:<br/><a href="${verifyUrl}">${verifyUrl}</a></div>
 <p style="font-size:13px;color:#B79D84;text-align:center">Didn't sign up? You can safely ignore this email.</p>
 </div>
-<div class="ftr"><p>Sent because <strong>${to}</strong> subscribed at <a href="https://parentintheloop.com">parentintheloop.com</a><br/>We never sell or share your email. Privacy-first 🔒</p></div>
+<div class="ftr"><p>Sent because <strong>${to}</strong> subscribed at <a href="https://parent-in-the-loop.vercel.app/">parentintheloop.com</a><br/>We never sell or share your email. Privacy-first 🔒</p></div>
 </div></div></body></html>`
 
   const res = await fetch("https://api.resend.com/emails", {
