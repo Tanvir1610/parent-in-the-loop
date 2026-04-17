@@ -6,8 +6,17 @@
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "X-Content-Type-Options", "value": "nosniff" }
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        }
       ]
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/weekly-digest",
+      "schedule": "0 9 * * 0"
     }
   ]
 }
