@@ -1,7 +1,5 @@
-"use client"
-
-import { useEffect, Suspense } from "react"
-import { useSearchParams } from "next/navigation"
+import { Suspense } from "react"
+import VerificationToast from "@/components/verification-toast"
 import Navbar from "@/components/navbar"
 import Hero from "@/components/hero"
 import StatsBar from "@/components/stats-bar"
@@ -12,22 +10,10 @@ import Testimonials from "@/components/testimonials"
 import Newsletter from "@/components/newsletter"
 import Footer from "@/components/footer"
 
-function HomeInner() {
-  const searchParams = useSearchParams()
-  const verifiedParam = searchParams.get("verified")
-
-  useEffect(() => {
-    if (!verifiedParam) return
-    setTimeout(() => {
-      document.getElementById("newsletter")?.scrollIntoView({ behavior: "smooth", block: "center" })
-    }, 400)
-    const url = new URL(window.location.href)
-    url.searchParams.delete("verified")
-    window.history.replaceState({}, "", url.toString())
-  }, [verifiedParam])
-
+export default function Home() {
   return (
     <main className="min-h-screen" style={{ backgroundColor: "#FAF6F0" }}>
+      <Suspense><VerificationToast /></Suspense>
       <Navbar />
       <Hero />
       <StatsBar />
@@ -35,16 +21,8 @@ function HomeInner() {
       <FeaturedContent />
       <AIQuiz />
       <Testimonials />
-      <Newsletter verifiedParam={verifiedParam} />
+      <Newsletter />
       <Footer />
     </main>
-  )
-}
-
-export default function Home() {
-  return (
-    <Suspense fallback={null}>
-      <HomeInner />
-    </Suspense>
   )
 }
