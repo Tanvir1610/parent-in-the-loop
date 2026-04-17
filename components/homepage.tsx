@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import Navbar from "@/components/navbar"
 import Hero from "@/components/hero"
@@ -12,25 +12,19 @@ import Testimonials from "@/components/testimonials"
 import Newsletter from "@/components/newsletter"
 import Footer from "@/components/footer"
 
-export default function Home() {
+function HomeInner() {
   const searchParams = useSearchParams()
+  const verifiedParam = searchParams.get("verified")
 
   useEffect(() => {
-    const verified = searchParams.get("verified")
-    if (!verified) return
-
-    // Scroll to newsletter section so user sees the confirmation message
+    if (!verifiedParam) return
     setTimeout(() => {
       document.getElementById("newsletter")?.scrollIntoView({ behavior: "smooth", block: "center" })
-    }, 300)
-
-    // Clean the URL without reloading
+    }, 400)
     const url = new URL(window.location.href)
     url.searchParams.delete("verified")
     window.history.replaceState({}, "", url.toString())
-  }, [searchParams])
-
-  const verifiedParam = searchParams.get("verified")
+  }, [verifiedParam])
 
   return (
     <main className="min-h-screen" style={{ backgroundColor: "#FAF6F0" }}>
@@ -44,5 +38,13 @@ export default function Home() {
       <Newsletter verifiedParam={verifiedParam} />
       <Footer />
     </main>
+  )
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={null}>
+      <HomeInner />
+    </Suspense>
   )
 }
