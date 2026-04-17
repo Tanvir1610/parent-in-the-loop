@@ -5,6 +5,7 @@ import ArticleCard from "./article-card"
 import type { Article } from "@/lib/use-articles"
 
 const CATEGORIES = ["All", "AI Literacy", "Safety", "Family Conversations", "Parenting"]
+const AGE_FILTERS = ["All ages", "5–8 years", "9–12 years", "13+ years"]
 
 const CATEGORY_EMOJI: Record<string, string> = {
   All: "✨",
@@ -12,6 +13,39 @@ const CATEGORY_EMOJI: Record<string, string> = {
   Safety: "🔒",
   "Family Conversations": "💬",
   Parenting: "❤️",
+}
+
+
+function AgeRecommendation() {
+  const [ages, setAges] = useState<string[]>([])
+
+  useEffect(() => {
+    try {
+      const a = localStorage.getItem("pitl_ages")
+      if (a) setAges(JSON.parse(a))
+    } catch {}
+  }, [])
+
+  if (ages.length === 0 || ages.includes("none")) return null
+
+  const ageLabel = ages.map(a =>
+    a === "5-8" ? "5–8 year olds" : a === "9-12" ? "9–12 year olds" : "teens"
+  ).join(" & ")
+
+  return (
+    <div className="max-w-4xl mx-auto mb-6 px-4 reveal">
+      <div className="flex items-center gap-3 px-4 py-3 rounded-2xl"
+        style={{ backgroundColor: "rgba(124,99,184,0.06)", border: "1px solid rgba(124,99,184,0.15)" }}>
+        <span className="text-base">✨</span>
+        <p className="text-sm" style={{ color: "#7C63B8", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}>
+          <strong>Personalised for you</strong> — showing content relevant for {ageLabel}.{" "}
+          <a href="/onboarding" className="underline hover:no-underline" style={{ color: "#7C63B8" }}>
+            Update preferences
+          </a>
+        </p>
+      </div>
+    </div>
+  )
 }
 
 export default function FeaturedContent() {

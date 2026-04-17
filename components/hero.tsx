@@ -141,6 +141,22 @@ export default function Hero() {
             #ParentInTheLoop #FamilyAI #CuriousKids
           </p>
         </div>
+
+        {/* Trust badges */}
+        <div className="flex flex-wrap justify-center gap-2 mt-5 reveal" style={{ animationDelay: "0.6s" }}>
+          {[
+            { label: "Free forever", emoji: "✅" },
+            { label: "COPPA compliant", emoji: "🔒" },
+            { label: "Research-backed", emoji: "📚" },
+            { label: "No spam, ever", emoji: "📬" },
+          ].map((badge) => (
+            <span key={badge.label}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold"
+              style={{ backgroundColor: "rgba(255,255,255,0.65)", color: "#B79D84", border: "1px solid #EDE8E1", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}>
+              {badge.emoji} {badge.label}
+            </span>
+          ))}
+        </div>
       </div>
     </section>
   )

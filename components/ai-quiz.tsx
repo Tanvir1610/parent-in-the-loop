@@ -408,21 +408,44 @@ function QuizContent() {
               ))}
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-3 justify-center mt-4">
-              <button
-                onClick={handleStart}
-                className="px-6 py-3 rounded-xl font-bold text-sm text-white transition-all hover:scale-105 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7C63B8]"
-                style={{ backgroundColor: "#7C63B8", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}
-              >
-                Play Again ↺
-              </button>
-              <button
-                onClick={() => document.getElementById("articles")?.scrollIntoView({ behavior: "smooth" })}
-                className="px-6 py-3 rounded-xl font-bold text-sm border-2 transition-all hover:scale-105 active:scale-95"
-                style={{ borderColor: "#F3A78E", color: "#F3A78E", backgroundColor: "transparent", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}
-              >
-                Read More Articles →
-              </button>
+            {/* Share card */}
+            <div className="mt-5 p-4 rounded-2xl"
+              style={{ backgroundColor: "#FAF6F0", border: "1.5px solid #EDE8E1" }}>
+              <p className="text-xs font-bold mb-3" style={{ color: "#B79D84", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}>
+                Share your result
+              </p>
+              <div className="flex gap-2 flex-wrap justify-center">
+                <button
+                  onClick={() => {
+                    const pct = Math.round((score / total) * 100)
+                    const emoji = score === total ? "🏆" : score >= total * 0.8 ? "⭐" : "🧠"
+                    const text = `${emoji} My family just scored ${score}/${total} (${pct}%) on the AI Literacy Quiz at Parent in the Loop! How AI-literate is your family? Take the free quiz at parent-in-the-loop.vercel.app #ParentInTheLoop #AILiteracy #FamilyAI`
+                    if (navigator.share) {
+                      navigator.share({ title: "My AI Literacy Quiz Result", text }).catch(() => {})
+                    } else {
+                      navigator.clipboard.writeText(text).then(() => alert("Result copied! Paste it anywhere to share."))
+                    }
+                  }}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm text-white transition-all hover:scale-105 active:scale-95"
+                  style={{ backgroundColor: "#7C63B8", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}
+                >
+                  ↗ Share My Result
+                </button>
+                <button
+                  onClick={handleStart}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm border-2 transition-all hover:scale-105 active:scale-95"
+                  style={{ borderColor: "#7C63B8", color: "#7C63B8", backgroundColor: "transparent", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}
+                >
+                  ↺ Play Again
+                </button>
+                <button
+                  onClick={() => document.getElementById("articles")?.scrollIntoView({ behavior: "smooth" })}
+                  className="px-5 py-2.5 rounded-xl font-bold text-sm border-2 transition-all hover:scale-105"
+                  style={{ borderColor: "#F3A78E", color: "#F3A78E", backgroundColor: "transparent", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}
+                >
+                  Read Articles →
+                </button>
+              </div>
             </div>
           </div>
         )}

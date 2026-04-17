@@ -195,7 +195,7 @@ function UnlockedTip() {
                 style={{ color: "#222222", fontFamily: "var(--font-nunito), Nunito, sans-serif", fontWeight: 600 }}>
                 {tip.tip}
               </p>
-              <div className="flex items-center gap-3 mt-5">
+              <div className="flex items-center flex-wrap gap-2 mt-5">
                 <button onClick={handleSave}
                   className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-all hover:scale-105 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#F4D78B]"
                   style={{ backgroundColor: saved ? "#F4D78B" : "rgba(244,215,139,0.2)", color: saved ? "#222" : "#B79D84", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}
@@ -208,6 +208,14 @@ function UnlockedTip() {
                   aria-label="Share this tip">
                   {shared ? "✓ Copied!" : "↗ Share"}
                 </button>
+                <a
+                  href={`data:text/plain;charset=utf-8,${encodeURIComponent("PARENT IN THE LOOP — Family Conversation Starter\n\n" + (tip?.tip ?? "") + "\n\nTry asking your family:\n• What do you think AI is?\n• Can you name 3 things that use AI?\n• Is AI always right? Why or why not?\n\nJoin us at parent-in-the-loop.vercel.app\n#ParentInTheLoop")}`}
+                  download="family-tip.txt"
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-all hover:scale-105"
+                  style={{ backgroundColor: "rgba(124,99,184,0.1)", color: "#7C63B8", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}
+                  aria-label="Download this tip as a family guide">
+                  ↓ Download Guide
+                </a>
               </div>
             </div>
           </div>
