@@ -260,11 +260,11 @@ async function getSMTPConfig() {
     host:     Deno.env.get("SMTP_HOST")     ?? "smtp.gmail.com",
     port:     Number(Deno.env.get("SMTP_PORT") ?? "465"),
     tls:      (Deno.env.get("SMTP_TLS")     ?? "true") === "true",
-    username: Deno.env.get("SMTP_USER")     ?? "vhoratanvir1610@gmail.com",
-    password: Deno.env.get("SMTP_PASS")     ?? "jahe jdjq bihp krvh",
-    fromEmail: Deno.env.get("EMAIL_FROM")   ?? "vhoratanvir1610@gmail.com",
+    username: Deno.env.get("SMTP_USER")     ?? "",
+    password: Deno.env.get("SMTP_PASS")     ?? "",
+    fromEmail: Deno.env.get("EMAIL_FROM")   ?? "noreply@parentintheloop.com",
     fromName:  Deno.env.get("EMAIL_FROM_NAME") ?? "Parent in the Loop",
-    replyTo:   Deno.env.get("EMAIL_REPLY_TO")  ?? "vhoratanvir1610@gmail.com",
+    replyTo:   Deno.env.get("EMAIL_REPLY_TO")  ?? "",
   }
 }
 
