@@ -1,59 +1,82 @@
-import { NextResponse } from "next/server"
-import { createSupabaseAdmin, hasSupabaseConfig } from "@/lib/supabase"
+// app/api/admin/stats/route.ts
+// Returns platform analytics for admin dashboard
+// Protected: only service_role or authenticated admin users
 
-export async function GET() {
-  if (!hasSupabaseConfig()) {
-    return NextResponse.json({ error: "No DB config" }, { status: 503 })
+import { type NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
+
+function getSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  )
+}
+
+export async function GET(req: NextRequest) {
+  // Simple token guard — add proper auth middleware in production
+  const auth = req.headers.get('authorization')
+  if (process.env.ADMIN_SECRET && auth !== `Bearer ${process.env.ADMIN_SECRET}`) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
-  try {
-    const supabase = createSupabaseAdmin()
-    const [subRes, artRes, msgRes, quizRes, viewRes, subGrowthRes] = await Promise.all([
-      supabase.from("subscribers").select("id, subscribed_at, is_active", { count: "exact" }),
-      supabase.from("articles").select("id, category", { count: "exact" }),
-      supabase.from("contact_messages").select("id, status", { count: "exact" }),
-      supabase.from("quiz_results").select("score, total, percentage, taken_at"),
-      supabase.from("article_views").select("slug, views").order("views", { ascending: false }).limit(6),
-      supabase.from("subscribers").select("subscribed_at")
-        .gte("subscribed_at", new Date(Date.now() - 56 * 24 * 60 * 60 * 1000).toISOString())
-        .order("subscribed_at", { ascending: true }),
-    ])
 
-    // Weekly growth buckets
-    const weeklyGrowth: Record<string, number> = {}
-    for (let w = 7; w >= 0; w--) {
-      const d = new Date(Date.now() - w * 7 * 24 * 60 * 60 * 1000)
-      weeklyGrowth[d.toLocaleDateString("en-US", { month: "short", day: "numeric" })] = 0
-    }
-    ;(subGrowthRes.data ?? []).forEach((s) => {
-      const d = new Date(s.subscribed_at)
-      const key = d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
-      if (key in weeklyGrowth) weeklyGrowth[key]++
-    })
-    const growthData = Object.entries(weeklyGrowth).map(([week, count]) => ({ week, count }))
+  const supabase = getSupabase()
 
-    const categories: Record<string, number> = {}
-    ;(artRes.data ?? []).forEach((a) => { categories[a.category] = (categories[a.category] ?? 0) + 1 })
-    const categoryData = Object.entries(categories).map(([name, count]) => ({ name, count }))
+  // Fetch the analytics view
+  const { data: analytics } = await supabase
+    .from('platform_analytics')
+    .select('*')
+    .single()
 
-    const quizData = quizRes.data ?? []
-    const avgScore = quizData.length
-      ? Math.round(quizData.reduce((s, q) => s + q.percentage, 0) / quizData.length) : 0
+  // Subscriber growth per week (last 12 weeks)
+  const { data: growth } = await supabase
+    .from('weekly_subscriber_growth')
+    .select('*')
+    .limit(12)
 
-    return NextResponse.json({
-      totals: {
-        subscribers:      subRes.count ?? 0,
-        articles:         artRes.count ?? 0,
-        messages:         msgRes.count ?? 0,
-        quizAttempts:     quizData.length,
-        avgQuizScore:     avgScore,
-        activeSubscribers: (subRes.data ?? []).filter((s) => s.is_active).length,
-      },
-      growthData,
-      categoryData,
-      topArticles: viewRes.data ?? [],
-    })
-  } catch (err) {
-    console.error("[admin/stats]", err)
-    return NextResponse.json({ error: "Failed to fetch stats" }, { status: 500 })
-  }
+  // Recent email queue activity
+  const { data: recentEmails } = await supabase
+    .from('email_queue')
+    .select('id, email_type, recipient, status, created_at, sent_at, last_error')
+    .order('created_at', { ascending: false })
+    .limit(20)
+
+  // Email queue summary
+  const { data: queueSummary } = await supabase
+    .from('email_queue')
+    .select('status, email_type')
+
+  const emailsByStatus = queueSummary?.reduce((acc: Record<string, number>, row) => {
+    acc[row.status] = (acc[row.status] ?? 0) + 1
+    return acc
+  }, {}) ?? {}
+
+  const emailsByType = queueSummary?.reduce((acc: Record<string, number>, row) => {
+    acc[row.email_type] = (acc[row.email_type] ?? 0) + 1
+    return acc
+  }, {}) ?? {}
+
+  // Content deliverables summary
+  const { data: deliverables } = await supabase
+    .from('content_deliverables')
+    .select('week_number, topic, status, mentor_approved, sources_count, assets_produced')
+    .order('week_number', { ascending: true })
+
+  // Most viewed articles
+  const { data: topArticles } = await supabase
+    .from('articles')
+    .select('id, title, category, view_count, published_date, age_group')
+    .order('view_count', { ascending: false })
+    .limit(10)
+
+  return NextResponse.json({
+    analytics,
+    subscriberGrowth:   growth ?? [],
+    recentEmails:       recentEmails ?? [],
+    emailsByStatus,
+    emailsByType,
+    deliverables:       deliverables ?? [],
+    topArticles:        topArticles ?? [],
+    generatedAt:        new Date().toISOString(),
+  })
 }

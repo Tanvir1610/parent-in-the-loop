@@ -1,57 +1,71 @@
-import { NextResponse } from "next/server"
-import { FALLBACK_ARTICLES } from "@/lib/data"
-import { createSupabaseServerClient, hasSupabaseConfig } from "@/lib/supabase"
+// app/api/articles/route.ts
+// Articles endpoint with age-group + category + search filtering
 
-const VALID_CATEGORIES = ["AI Literacy", "Parenting", "Family Conversations", "Safety"]
+import { type NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
 
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url)
-  const featured = searchParams.get("featured") === "true"
-  const limit = Math.min(Math.max(parseInt(searchParams.get("limit") || "6"), 1), 20)
-  const category = searchParams.get("category") || ""
-  const slug = searchParams.get("slug") || ""
+function getSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
+}
 
-  // Validate category to prevent injection
-  if (category && !VALID_CATEGORIES.includes(category)) {
-    return NextResponse.json({ error: "Invalid category" }, { status: 400 })
+export async function GET(req: NextRequest) {
+  const { searchParams } = req.nextUrl
+
+  const category  = searchParams.get('category')  ?? 'all'
+  const ageGroup  = searchParams.get('age_group')  ?? 'all'
+  const search    = searchParams.get('search')     ?? ''
+  const page      = parseInt(searchParams.get('page')     ?? '1')
+  const pageSize  = parseInt(searchParams.get('pageSize') ?? '12')
+  const featured  = searchParams.get('featured')  === 'true'
+  const offset    = (page - 1) * pageSize
+
+  const supabase = getSupabase()
+
+  let query = supabase
+    .from('articles')
+    .select(
+      'id, title, slug, excerpt, category, published_date, read_time, featured, view_count, age_group, literacy_level, asset_type',
+      { count: 'exact' }
+    )
+    .lte('published_date', new Date().toISOString())
+
+  // Category filter
+  if (category && category !== 'all') {
+    query = query.eq('category', category)
   }
 
-  // --- Try Supabase ---
-  if (hasSupabaseConfig()) {
-    try {
-      const supabase = await createSupabaseServerClient()
-
-      let query = supabase
-        .from("articles")
-        .select(
-          "id, title, slug, excerpt, category, image_url, published_date, featured, substack_url, read_time, tags, author"
-        )
-        .order("published_date", { ascending: false })
-        .limit(limit)
-
-      if (featured) query = query.eq("featured", true)
-      if (category) query = query.eq("category", category)
-      if (slug) query = query.eq("slug", slug)
-
-      const { data, error } = await query
-
-      if (error) {
-        console.error("[articles] Supabase error:", error.message)
-        // Fall through to static
-      } else if (data && data.length > 0) {
-        return NextResponse.json({ articles: data, source: "supabase" })
-      }
-    } catch (err) {
-      console.error("[articles] Supabase connection failed:", err)
-    }
+  // Age group filter — 'all' articles always show regardless of selected age
+  if (ageGroup && ageGroup !== 'all') {
+    query = query.or(`age_group.eq.${ageGroup},age_group.eq.all`)
   }
 
-  // --- Static fallback ---
-  let articles = [...FALLBACK_ARTICLES]
-  if (featured) articles = articles.filter((a) => a.featured)
-  if (category) articles = articles.filter((a) => a.category === category)
-  if (slug) articles = articles.filter((a) => a.slug === slug)
-  articles = articles.slice(0, limit)
+  // Search
+  if (search.trim()) {
+    query = query.or(`title.ilike.%${search.trim()}%,excerpt.ilike.%${search.trim()}%`)
+  }
 
-  return NextResponse.json({ articles, source: "static" })
+  // Featured
+  if (featured) {
+    query = query.eq('featured', true)
+  }
+
+  const { data, count, error } = await query
+    .order('published_date', { ascending: false })
+    .range(offset, offset + pageSize - 1)
+
+  if (error) {
+    console.error('[articles] Query error:', error.message)
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  return NextResponse.json({
+    articles:   data ?? [],
+    total:      count ?? 0,
+    page,
+    pageSize,
+    totalPages: Math.ceil((count ?? 0) / pageSize),
+  })
 }

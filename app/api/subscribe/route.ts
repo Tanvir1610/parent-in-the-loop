@@ -1,150 +1,178 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { createClient } from "@supabase/supabase-js"
+// app/api/subscribe/route.ts
+// TC-01: Valid email → subscription created
+// TC-02: Duplicate email → 409
+// TC-03: Invalid format → 422
+// TC-15: Rate limiting — max 3 attempts per IP per hour
+
+import { type NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
 
 const EMAIL_RE = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}$/
+const RATE_LIMIT_MAX  = 3
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000 // 1 hour
 
 function getSupabase() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!url || !key) throw new Error("Missing Supabase env vars.")
-  return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } })
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  )
 }
 
-// ─── Send via Supabase Edge Function (zero external API keys) ───────────────
-async function sendViaEdgeFunction(
-  type: "verification" | "welcome" | "weekly",
-  payload: Record<string, unknown>
-): Promise<void> {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const serviceKey  = process.env.SUPABASE_SERVICE_ROLE_KEY
+function getClientIP(req: NextRequest): string {
+  return (
+    req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
+    req.headers.get('x-real-ip') ??
+    '0.0.0.0'
+  )
+}
 
-  if (!supabaseUrl || !serviceKey) {
-    console.warn("[email] Missing Supabase env — skipping email")
-    return
-  }
-
-  const edgeUrl = `${supabaseUrl}/functions/v1/send-email`
-
+async function checkRateLimit(supabase: ReturnType<typeof getSupabase>, ip: string): Promise<boolean> {
   try {
-    const res = await fetch(edgeUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${serviceKey}`,
-      },
-      body: JSON.stringify({ type, ...payload }),
-    })
+    const { data } = await supabase
+      .from('subscription_rate_limits')
+      .select('attempt_count, first_attempt')
+      .eq('ip_address', ip)
+      .maybeSingle()
 
-    if (res.ok) {
-      console.info(`[email] ✉️  ${type} email sent →`, payload.to)
-    } else {
-      const err = await res.text()
-      console.error(`[email] Edge function error (${res.status}):`, err)
+    if (!data) {
+      // First attempt from this IP
+      await supabase.from('subscription_rate_limits').insert({
+        ip_address:     ip,
+        attempt_count:  1,
+        first_attempt:  new Date().toISOString(),
+        last_attempt:   new Date().toISOString(),
+      })
+      return true // allowed
     }
-  } catch (err) {
-    console.error("[email] Edge function unreachable:", err)
+
+    const windowStart  = new Date(data.first_attempt).getTime()
+    const now          = Date.now()
+    const withinWindow = (now - windowStart) < RATE_LIMIT_WINDOW_MS
+
+    if (!withinWindow) {
+      // Window expired — reset
+      await supabase
+        .from('subscription_rate_limits')
+        .update({ attempt_count: 1, first_attempt: new Date().toISOString(), last_attempt: new Date().toISOString() })
+        .eq('ip_address', ip)
+      return true
+    }
+
+    if (data.attempt_count >= RATE_LIMIT_MAX) {
+      return false // blocked
+    }
+
+    // Increment
+    await supabase
+      .from('subscription_rate_limits')
+      .update({ attempt_count: data.attempt_count + 1, last_attempt: new Date().toISOString() })
+      .eq('ip_address', ip)
+
+    return true
+  } catch {
+    // If rate limit table fails, allow the request (fail open)
+    return true
   }
 }
 
-// ─── POST /api/subscribe ─────────────────────────────────────────────────────
-export async function POST(request: NextRequest) {
+export async function POST(req: NextRequest) {
   let body: Record<string, unknown>
-  try { body = await request.json() }
-  catch { return NextResponse.json({ error: "Invalid request body." }, { status: 400 }) }
+  try { body = await req.json() }
+  catch { return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 }) }
 
-  const raw   = typeof body?.email === "string" ? body.email : ""
+  const raw   = typeof body?.email === 'string' ? body.email : ''
   const email = raw.trim().toLowerCase()
 
-  if (!email)                return NextResponse.json({ error: "Email address is required." }, { status: 400 })
-  if (!EMAIL_RE.test(email)) return NextResponse.json({ error: "That email address is not valid." }, { status: 422 })
+  if (!email)
+    return NextResponse.json({ error: 'Email address is required.' }, { status: 400 })
+  if (!EMAIL_RE.test(email))
+    return NextResponse.json({ error: 'That email address is not valid.' }, { status: 422 })
 
-  let supabase
-  try { supabase = getSupabase() }
-  catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Configuration error." }, { status: 503 })
+  const supabase = getSupabase()
+  const ip       = getClientIP(req)
+
+  // ── Rate limit check ─────────────────────────────────────────────
+  const allowed = await checkRateLimit(supabase, ip)
+  if (!allowed) {
+    return NextResponse.json(
+      { error: 'Too many subscription attempts. Please try again in an hour.' },
+      { status: 429 }
+    )
   }
 
   try {
-    // Check if already exists
+    // ── Check existing subscriber ────────────────────────────────
     const { data: existing } = await supabase
-      .from("subscribers")
-      .select("id, is_verified, is_active, verification_token")
-      .eq("email", email)
+      .from('subscribers')
+      .select('id, is_verified, is_active, verification_token')
+      .eq('email', email)
       .maybeSingle()
 
     if (existing) {
       if (existing.is_verified && existing.is_active) {
-        return NextResponse.json({
-          error: "This email is already subscribed! ✅",
-          already_subscribed: true,
-        }, { status: 409 })
+        return NextResponse.json(
+          { error: 'This email is already subscribed! ✅', already_subscribed: true },
+          { status: 409 }
+        )
       }
 
-      // Not yet verified — resend verification email
-      if (existing.verification_token) {
-        const siteUrl    = process.env.NEXT_PUBLIC_SITE_URL || "https://parent-in-the-loop.vercel.app"
-        const verifyUrl  = `${siteUrl}/api/verify-email?token=${existing.verification_token}`
-        await sendViaEdgeFunction("verification", { to: email, verifyUrl })
-      }
+      // Unverified — resend via DB function
+      const { data: resendResult } = await supabase
+        .rpc('resend_verification', { p_email: email })
 
       return NextResponse.json({
-        success: true,
+        success:              true,
         pending_verification: true,
-        resent: true,
+        resent:               true,
         email,
-        message: "Verification email resent! Check your inbox (and spam folder).",
+        message:              'Verification email resent! Check your inbox (and spam folder).',
       })
     }
 
-    // Insert new subscriber (unverified — is_active stays false until verified)
+    // ── Insert new subscriber ────────────────────────────────────
     const { data: inserted, error: insertErr } = await supabase
-      .from("subscribers")
+      .from('subscribers')
       .insert({
         email,
-        source:        "website",
+        source:        'website',
         subscribed_at: new Date().toISOString(),
         is_verified:   false,
         is_active:     false,
+        subscribe_ip:  ip,
       })
-      .select("id, verification_token")
+      .select('id, verification_token')
       .single()
 
     if (insertErr) {
-      if (insertErr.code === "23505") {
-        return NextResponse.json({ error: "This email is already subscribed! ✅", already_subscribed: true }, { status: 409 })
+      if (insertErr.code === '23505') {
+        return NextResponse.json(
+          { error: 'This email is already subscribed! ✅', already_subscribed: true },
+          { status: 409 }
+        )
       }
-      if (insertErr.code === "42703") {
-        return NextResponse.json({
-          error: "Database needs updating. Please run setup-subscribers-with-verification.sql in Supabase.",
-        }, { status: 503 })
-      }
-      console.error("[subscribe] Insert error:", insertErr)
+      console.error('[subscribe] Insert error:', insertErr)
       return NextResponse.json({ error: `Database error: ${insertErr.message}` }, { status: 500 })
     }
 
-    // Fire verification email via Edge Function (no external API key)
-    if (inserted?.verification_token) {
-      const siteUrl   = process.env.NEXT_PUBLIC_SITE_URL || "https://parent-in-the-loop.vercel.app"
-      const verifyUrl = `${siteUrl}/api/verify-email?token=${inserted.verification_token}`
-      await sendViaEdgeFunction("verification", { to: email, verifyUrl })
-    }
-
-    console.info("[subscribe] ✓ New subscriber (pending verification):", email)
+    // Trigger fires automatically (on_subscriber_insert) → verification email via pg_net
+    console.info('[subscribe] ✓ New subscriber (pending verification):', email)
     return NextResponse.json({
-      success: true,
+      success:              true,
       pending_verification: true,
       email,
-      message: "Check your inbox for a verification email!",
+      message:              'Check your inbox for a verification email!',
     })
 
   } catch (err) {
-    console.error("[subscribe] Unexpected error:", err)
-    return NextResponse.json({
-      error: `Server error: ${err instanceof Error ? err.message : String(err)}`,
-    }, { status: 500 })
+    console.error('[subscribe] Unexpected error:', err)
+    return NextResponse.json(
+      { error: `Server error: ${err instanceof Error ? err.message : String(err)}` },
+      { status: 500 }
+    )
   }
 }
 
 export async function GET() {
-  return NextResponse.json({ error: "Method not allowed. Use POST." }, { status: 405 })
+  return NextResponse.json({ error: 'Method not allowed. Use POST.' }, { status: 405 })
 }
