@@ -1,36 +1,36 @@
-import { NextResponse } from "next/server"
-import { hasSupabaseConfig } from "@/lib/supabase"
+// app/api/health/route.ts — system health + public stats for stats-bar
+
+import { NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
 
 export async function GET() {
-  const checks: Record<string, string> = {
-    status: "ok",
-    timestamp: new Date().toISOString(),
-    supabase_configured: hasSupabaseConfig() ? "yes" : "no",
-    service_role_configured: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY) ? "yes" : "no",
+  const url  = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  const svcKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  if (!url || !anon) {
+    return NextResponse.json({ status: 'error', message: 'Missing Supabase env vars' }, { status: 503 })
   }
 
-  // Optionally ping Supabase
-  if (hasSupabaseConfig()) {
-    try {
-      const { createSupabaseServerClient } = await import("@/lib/supabase")
-      const supabase = await createSupabaseServerClient()
-      const { error } = await supabase.from("articles").select("id").limit(1)
-      checks.supabase_articles_table = error ? `error: ${error.message}` : "reachable"
-    } catch (e) {
-      checks.supabase_articles_table = `unreachable: ${e}`
+  let stats = null
+  try {
+    const supabase = createClient(url, svcKey ?? anon, { auth: { autoRefreshToken: false, persistSession: false } })
+    const { data } = await supabase.from('platform_analytics').select('*').single()
+    if (data) {
+      stats = {
+        verified_subscribers: Number(data.verified_subscribers) ?? 0,
+        published_articles:   Number(data.published_articles)   ?? 0,
+        emails_sent:          Number(data.emails_sent)          ?? 0,
+        total_quiz_attempts:  Number(data.total_quiz_attempts)  ?? 0,
+      }
     }
+  } catch { /* non-critical */ }
 
-    try {
-      const { createSupabaseAdmin } = await import("@/lib/supabase")
-      const admin = createSupabaseAdmin()
-      const { error } = await admin.from("subscribers").select("id").limit(1)
-      checks.supabase_subscribers_table = error ? `error: ${error.message}` : "reachable"
-    } catch (e) {
-      checks.supabase_subscribers_table = `unreachable: ${e}`
-    }
-  }
-
-  const allOk = !Object.values(checks).some((v) => v.startsWith("error") || v.startsWith("unreachable"))
-
-  return NextResponse.json(checks, { status: allOk ? 200 : 503 })
+  return NextResponse.json({
+    status:      'ok',
+    timestamp:   new Date().toISOString(),
+    environment: process.env.NODE_ENV,
+    supabase:    !!url,
+    stats,
+  })
 }

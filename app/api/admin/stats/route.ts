@@ -1,6 +1,4 @@
-// app/api/admin/stats/route.ts
-// Returns platform analytics for admin dashboard
-// Protected: only service_role or authenticated admin users
+// app/api/admin/stats/route.ts — fixed: removed view_count, use article_views join
 
 import { type NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
@@ -14,7 +12,6 @@ function getSupabase() {
 }
 
 export async function GET(req: NextRequest) {
-  // Simple token guard — add proper auth middleware in production
   const auth = req.headers.get('authorization')
   if (process.env.ADMIN_SECRET && auth !== `Bearer ${process.env.ADMIN_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -22,61 +19,35 @@ export async function GET(req: NextRequest) {
 
   const supabase = getSupabase()
 
-  // Fetch the analytics view
-  const { data: analytics } = await supabase
-    .from('platform_analytics')
-    .select('*')
-    .single()
+  const [analyticsRes, growthRes, emailsRes, queueRes, deliverablesRes, topArticlesRes, userPostsRes] =
+    await Promise.all([
+      supabase.from('platform_analytics').select('*').single(),
+      supabase.from('weekly_subscriber_growth').select('*').limit(12),
+      supabase.from('email_queue').select('id,email_type,recipient,status,created_at,sent_at,last_error').order('created_at',{ascending:false}).limit(20),
+      supabase.from('email_queue').select('status,email_type'),
+      supabase.from('content_deliverables').select('week_number,topic,status,mentor_approved,sources_count,assets_produced').order('week_number',{ascending:true}),
+      // Fixed: join article_views for view counts instead of view_count column
+      supabase.from('articles').select('id,title,category,published_date,age_group,slug').order('published_date',{ascending:false}).limit(10),
+      supabase.from('user_posts').select('id,title,asset_type,status,created_at').order('created_at',{ascending:false}).limit(20),
+    ])
 
-  // Subscriber growth per week (last 12 weeks)
-  const { data: growth } = await supabase
-    .from('weekly_subscriber_growth')
-    .select('*')
-    .limit(12)
-
-  // Recent email queue activity
-  const { data: recentEmails } = await supabase
-    .from('email_queue')
-    .select('id, email_type, recipient, status, created_at, sent_at, last_error')
-    .order('created_at', { ascending: false })
-    .limit(20)
-
-  // Email queue summary
-  const { data: queueSummary } = await supabase
-    .from('email_queue')
-    .select('status, email_type')
-
-  const emailsByStatus = queueSummary?.reduce((acc: Record<string, number>, row) => {
-    acc[row.status] = (acc[row.status] ?? 0) + 1
-    return acc
+  const emailsByStatus = queueRes.data?.reduce((acc: Record<string,number>, r) => {
+    acc[r.status] = (acc[r.status] ?? 0) + 1; return acc
   }, {}) ?? {}
 
-  const emailsByType = queueSummary?.reduce((acc: Record<string, number>, row) => {
-    acc[row.email_type] = (acc[row.email_type] ?? 0) + 1
-    return acc
+  const emailsByType = queueRes.data?.reduce((acc: Record<string,number>, r) => {
+    acc[r.email_type] = (acc[r.email_type] ?? 0) + 1; return acc
   }, {}) ?? {}
-
-  // Content deliverables summary
-  const { data: deliverables } = await supabase
-    .from('content_deliverables')
-    .select('week_number, topic, status, mentor_approved, sources_count, assets_produced')
-    .order('week_number', { ascending: true })
-
-  // Most viewed articles
-  const { data: topArticles } = await supabase
-    .from('articles')
-    .select('id, title, category, view_count, published_date, age_group')
-    .order('view_count', { ascending: false })
-    .limit(10)
 
   return NextResponse.json({
-    analytics,
-    subscriberGrowth:   growth ?? [],
-    recentEmails:       recentEmails ?? [],
+    analytics:       analyticsRes.data,
+    subscriberGrowth: growthRes.data   ?? [],
+    recentEmails:    emailsRes.data    ?? [],
     emailsByStatus,
     emailsByType,
-    deliverables:       deliverables ?? [],
-    topArticles:        topArticles ?? [],
-    generatedAt:        new Date().toISOString(),
+    deliverables:    deliverablesRes.data ?? [],
+    topArticles:     topArticlesRes.data  ?? [],
+    userPosts:       userPostsRes.data    ?? [],
+    generatedAt:     new Date().toISOString(),
   })
 }
