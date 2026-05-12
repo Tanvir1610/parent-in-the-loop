@@ -1,47 +1,27 @@
 "use client"
 
-// components/create-menu.tsx
-// Fully working Create modal for Note / Article / Video
-// Each type has a complete, validated form with proper submit to /api/user-posts
+// components/create-menu.tsx — FIXED modal positioning + full form visibility
 
 import { useState, useRef, useEffect, useCallback } from "react"
-import { Plus, ChevronDown, X, StickyNote, FileText, Video, Check, AlertCircle, Loader2, Upload } from "lucide-react"
+import {
+  Plus, ChevronDown, X, StickyNote, FileText, Video,
+  Check, AlertCircle, Loader2,
+} from "lucide-react"
+import ReactDOM from "react-dom"
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+// ── Types ──────────────────────────────────────────────────────────────────
 const POST_TYPES = [
-  {
-    id:    "note"    as const,
-    label: "Note",
-    icon:  StickyNote,
-    color: "#A6B6A1",
-    desc:  "Share a quick thought or tip",
-    hint:  "Notes appear on the community feed after review.",
-  },
-  {
-    id:    "article" as const,
-    label: "Article",
-    icon:  FileText,
-    color: "#7C63B8",
-    desc:  "Write a long-form AI parenting article",
-    hint:  "Articles go through editorial review before publishing.",
-  },
-  {
-    id:    "video" as const,
-    label: "Video",
-    icon:  Video,
-    color: "#F3A78E",
-    desc:  "Share a video link with commentary",
-    hint:  "Share YouTube, Vimeo, or any publicly accessible video.",
-  },
-] as const
-
-type PostTypeId = (typeof POST_TYPES)[number]["id"]
-type PostType   = (typeof POST_TYPES)[number]
+  { id: "note"    as const, label: "Note",    Icon: StickyNote, color: "#A6B6A1", desc: "Share a quick thought or tip",                hint: "Notes appear on the community feed after review." },
+  { id: "article" as const, label: "Article", Icon: FileText,   color: "#7C63B8", desc: "Write a long-form AI parenting article",       hint: "Articles go through editorial review before publishing." },
+  { id: "video"   as const, label: "Video",   Icon: Video,      color: "#F3A78E", desc: "Share a video link with commentary",           hint: "Share YouTube, Vimeo, or any public video URL." },
+]
+type PostTypeId = "note" | "article" | "video"
+type PostType   = typeof POST_TYPES[number]
 type SubmitState = "idle" | "submitting" | "success" | "error"
 
 const CATEGORIES = ["AI Literacy", "Safety", "Family Conversations", "Parenting"]
 const AGE_GROUPS = [
-  { value: "all",   label: "All Ages" },
+  { value: "all",   label: "All Ages"  },
   { value: "5-7",   label: "5–7 yrs"  },
   { value: "8-10",  label: "8–10 yrs" },
   { value: "11-13", label: "11–13 yrs"},
@@ -49,340 +29,233 @@ const AGE_GROUPS = [
   { value: "17+",   label: "17+"       },
 ]
 
-// ── Shared form field styles ─────────────────────────────────────────────────
-function Label({ children, required }: { children: React.ReactNode; required?: boolean }) {
-  return (
-    <label className="block text-xs font-bold uppercase tracking-wider mb-1.5"
-      style={{ color: "var(--muted-foreground, #B79D84)", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}>
-      {children} {required && <span style={{ color: "#F3A78E" }}>*</span>}
-    </label>
-  )
+interface FormState {
+  title: string; content: string; excerpt: string
+  video_url: string; category: string; age_group: string
+  tags: string; read_time: string
+}
+const EMPTY: FormState = {
+  title: "", content: "", excerpt: "", video_url: "",
+  category: "", age_group: "all", tags: "", read_time: "5",
 }
 
-const fieldStyle = {
-  backgroundColor: "var(--muted, #FAF6F0)",
+// ── Validation ─────────────────────────────────────────────────────────────
+function validate(typeId: PostTypeId, form: FormState) {
+  const e: Record<string, string> = {}
+  if (!form.title.trim())                                            e.title     = "Title is required."
+  if (form.title.length > 120)                                       e.title     = "Keep title under 120 characters."
+  if (typeId === "note"    && !form.content.trim())                  e.content   = "Please write some content."
+  if (typeId === "article" && form.content.trim().length < 100)      e.content   = "Article should be at least 100 characters."
+  if (typeId === "video"   && !form.video_url.trim())                e.video_url = "Video URL is required."
+  if (typeId === "video"   && form.video_url && !/^https?:\/\/.+/.test(form.video_url.trim()))
+    e.video_url = "Enter a valid URL starting with https://"
+  return e
+}
+
+// ── Shared field components ────────────────────────────────────────────────
+const iStyle = {
+  backgroundColor: "var(--input, #FAF6F0)",
   borderColor:     "var(--border, #EDE8E1)",
   color:           "var(--foreground, #222222)",
   fontFamily:      "var(--font-nunito), Nunito, sans-serif",
-  transition:      "border-color 0.15s, box-shadow 0.15s",
+  transition:      "border-color .15s, box-shadow .15s",
+  width:           "100%",
+  borderRadius:    12,
+  padding:         "10px 13px",
+  fontSize:        14,
+  border:          "1.5px solid",
+  outline:         "none",
 }
 
-function Field({
-  label, required, error, children,
-}: { label: string; required?: boolean; error?: string; children: React.ReactNode }) {
+function Lbl({ ch, req }: { ch: string; req?: boolean }) {
   return (
-    <div>
-      <Label required={required}>{label}</Label>
-      {children}
-      {error && (
-        <p className="mt-1 text-xs flex items-center gap-1" style={{ color: "#e74c3c" }}>
-          <AlertCircle size={11} /> {error}
-        </p>
-      )}
-    </div>
+    <p style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase" as const,
+      letterSpacing: "0.07em", marginBottom: 6, color: "var(--muted-foreground, #B79D84)",
+      fontFamily: "var(--font-nunito), Nunito, sans-serif" }}>
+      {ch}{req && <span style={{ color: "#F3A78E", marginLeft: 2 }}>*</span>}
+    </p>
   )
 }
 
-// ── Character counter ─────────────────────────────────────────────────────────
-function CharCount({ value, max }: { value: string; max: number }) {
-  const pct = value.length / max
-  const col  = pct > 0.9 ? "#e74c3c" : pct > 0.7 ? "#F3A78E" : "var(--muted-foreground, #B79D84)"
+function ErrMsg({ msg }: { msg?: string }) {
+  if (!msg) return null
   return (
-    <span className="text-xs float-right" style={{ color: col, fontFamily: "var(--font-nunito), Nunito, sans-serif" }}>
-      {value.length}/{max}
-    </span>
+    <p style={{ fontSize: 11, color: "#e74c3c", marginTop: 4, display: "flex", alignItems: "center", gap: 4 }}>
+      <AlertCircle size={11} />{msg}
+    </p>
   )
 }
 
-// ── Form state per type ───────────────────────────────────────────────────────
-interface FormState {
-  title:     string
-  content:   string
-  excerpt:   string
-  video_url: string
-  category:  string
-  age_group: string
-  tags:      string   // raw comma-separated
-  read_time: string
-}
-
-const EMPTY: FormState = {
-  title: "", content: "", excerpt: "",
-  video_url: "", category: "", age_group: "all",
-  tags: "", read_time: "5",
-}
-
-// ── Validate form ─────────────────────────────────────────────────────────────
-function validate(type: PostTypeId, form: FormState): Record<string, string> {
-  const errs: Record<string, string> = {}
-  if (!form.title.trim())                          errs.title     = "Title is required."
-  if (form.title.length > 120)                     errs.title     = "Title must be under 120 characters."
-  if (type === "note" && !form.content.trim())     errs.content   = "Content is required for a note."
-  if (type === "video" && !form.video_url.trim())  errs.video_url = "Video URL is required."
-  if (type === "video" && form.video_url.trim() &&
-      !/^https?:\/\/.+/.test(form.video_url.trim()))
-    errs.video_url = "Please enter a valid URL starting with https://"
-  if (type === "article" && form.content.trim().length < 100)
-    errs.content = "Article body should be at least 100 characters."
-  return errs
-}
-
-// ── Note form ─────────────────────────────────────────────────────────────────
-function NoteForm({ form, set, errs }: { form: FormState; set: (k: keyof FormState, v: string) => void; errs: Record<string,string> }) {
+// ── Note Form ──────────────────────────────────────────────────────────────
+function NoteForm({ form, set, errs }: { form: FormState; set: (k: keyof FormState, v: string) => void; errs: Record<string, string> }) {
   return (
-    <div className="space-y-4">
-      <Field label="Title" required error={errs.title}>
-        <div className="relative">
-          <input
-            value={form.title}
-            onChange={e => set("title", e.target.value)}
-            maxLength={120}
-            placeholder="What's on your mind?"
-            className="w-full px-3 py-2.5 rounded-xl text-sm border focus:outline-none focus-visible:ring-2 focus-visible:ring-[#A6B6A1]"
-            style={{ ...fieldStyle, borderColor: errs.title ? "#e74c3c" : undefined }}
-          />
-          <CharCount value={form.title} max={120} />
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div>
+        <Lbl ch="Title" req />
+        <input value={form.title} onChange={e => set("title", e.target.value)}
+          maxLength={120} placeholder="What's on your mind?"
+          style={{ ...iStyle, borderColor: errs.title ? "#e74c3c" : "var(--border, #EDE8E1)" }} />
+        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
+          <ErrMsg msg={errs.title} />
+          <span style={{ fontSize: 11, color: "var(--muted-foreground, #B79D84)", marginLeft: "auto" }}>{form.title.length}/120</span>
         </div>
-      </Field>
-
-      <Field label="Content" required error={errs.content}>
-        <textarea
-          value={form.content}
-          onChange={e => set("content", e.target.value)}
+      </div>
+      <div>
+        <Lbl ch="Content" req />
+        <textarea value={form.content} onChange={e => set("content", e.target.value)} rows={7}
           placeholder="Share your thought, experience, question, or tip for other parents navigating AI with their kids…"
-          rows={6}
-          className="w-full px-3 py-2.5 rounded-xl text-sm border focus:outline-none focus-visible:ring-2 focus-visible:ring-[#A6B6A1]"
-          style={{ ...fieldStyle, resize: "vertical", borderColor: errs.content ? "#e74c3c" : undefined }}
-        />
-      </Field>
+          style={{ ...iStyle, resize: "vertical", lineHeight: 1.65, borderColor: errs.content ? "#e74c3c" : "var(--border, #EDE8E1)" }} />
+        <ErrMsg msg={errs.content} />
+      </div>
     </div>
   )
 }
 
-// ── Article form ─────────────────────────────────────────────────────────────
-function ArticleForm({ form, set, errs }: { form: FormState; set: (k: keyof FormState, v: string) => void; errs: Record<string,string> }) {
+// ── Article Form ───────────────────────────────────────────────────────────
+function ArticleForm({ form, set, errs }: { form: FormState; set: (k: keyof FormState, v: string) => void; errs: Record<string, string> }) {
+  const words = form.content.trim().split(/\s+/).filter(Boolean).length
   return (
-    <div className="space-y-4">
-      <Field label="Title" required error={errs.title}>
-        <input
-          value={form.title}
-          onChange={e => set("title", e.target.value)}
-          maxLength={120}
-          placeholder="A compelling, family-friendly title…"
-          className="w-full px-3 py-2.5 rounded-xl text-sm border focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7C63B8]"
-          style={{ ...fieldStyle, borderColor: errs.title ? "#e74c3c" : undefined }}
-        />
-      </Field>
-
-      <div className="grid grid-cols-2 gap-3">
-        <Field label="Category">
-          <select
-            value={form.category}
-            onChange={e => set("category", e.target.value)}
-            className="w-full px-3 py-2.5 rounded-xl text-sm border focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7C63B8]"
-            style={fieldStyle}
-          >
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div>
+        <Lbl ch="Title" req />
+        <input value={form.title} onChange={e => set("title", e.target.value)}
+          maxLength={120} placeholder="A compelling, family-friendly headline…"
+          style={{ ...iStyle, borderColor: errs.title ? "#e74c3c" : "var(--border, #EDE8E1)" }} />
+        <ErrMsg msg={errs.title} />
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <div>
+          <Lbl ch="Category" />
+          <select value={form.category} onChange={e => set("category", e.target.value)} style={{ ...iStyle, cursor: "pointer" }}>
             <option value="">Select…</option>
             {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
-        </Field>
-        <Field label="Age Group">
-          <select
-            value={form.age_group}
-            onChange={e => set("age_group", e.target.value)}
-            className="w-full px-3 py-2.5 rounded-xl text-sm border focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7C63B8]"
-            style={fieldStyle}
-          >
-            {AGE_GROUPS.map(ag => <option key={ag.value} value={ag.value}>{ag.label}</option>)}
+        </div>
+        <div>
+          <Lbl ch="Age Group" />
+          <select value={form.age_group} onChange={e => set("age_group", e.target.value)} style={{ ...iStyle, cursor: "pointer" }}>
+            {AGE_GROUPS.map(a => <option key={a.value} value={a.value}>{a.label}</option>)}
           </select>
-        </Field>
+        </div>
       </div>
-
-      <Field label="Short Description">
-        <textarea
-          value={form.excerpt}
-          onChange={e => set("excerpt", e.target.value)}
-          placeholder="1–2 sentences summarising your article (appears in preview cards)…"
-          rows={2}
-          className="w-full px-3 py-2.5 rounded-xl text-sm border focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7C63B8]"
-          style={{ ...fieldStyle, resize: "vertical" }}
-        />
-      </Field>
-
-      <Field label="Article Body" required error={errs.content}>
-        <div className="relative">
-          <textarea
-            value={form.content}
-            onChange={e => set("content", e.target.value)}
-            placeholder="Write your full article here. Markdown is supported.
-
-Structure suggestion:
-- Start with a relatable parent scenario
-- Explain the AI concept clearly (no jargon)
-- Give 3–5 actionable tips
-- Include a family conversation starter
-- End with a hands-on activity"
-            rows={12}
-            className="w-full px-3 py-2.5 rounded-xl text-sm border focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7C63B8]"
-            style={{ ...fieldStyle, resize: "vertical", borderColor: errs.content ? "#e74c3c" : undefined }}
-          />
-          <span className="absolute bottom-3 right-3 text-xs" style={{ color: "var(--muted-foreground, #B79D84)" }}>
-            {form.content.trim().split(/\s+/).filter(Boolean).length} words
+      <div>
+        <Lbl ch="Short Description" />
+        <textarea value={form.excerpt} onChange={e => set("excerpt", e.target.value)} rows={2}
+          placeholder="1–2 sentence summary shown in article preview cards…"
+          style={{ ...iStyle, resize: "vertical" }} />
+      </div>
+      <div>
+        <Lbl ch="Article Body" req />
+        <div style={{ position: "relative" }}>
+          <textarea value={form.content} onChange={e => set("content", e.target.value)} rows={11}
+            placeholder={"Write your article here. Markdown is supported.\n\nSuggested structure:\n• Start with a relatable parent scenario\n• Explain the AI concept simply\n• Give 3–5 actionable tips\n• Add a conversation starter\n• End with a family activity"}
+            style={{ ...iStyle, resize: "vertical", lineHeight: 1.7, borderColor: errs.content ? "#e74c3c" : "var(--border, #EDE8E1)", paddingBottom: 28 }} />
+          <span style={{ position: "absolute", bottom: 10, right: 12, fontSize: 11, color: "var(--muted-foreground, #B79D84)" }}>
+            {words} words
           </span>
         </div>
-        {errs.content && (
-          <p className="mt-1 text-xs flex items-center gap-1" style={{ color: "#e74c3c" }}>
-            <AlertCircle size={11} /> {errs.content}
-          </p>
-        )}
-      </Field>
-
-      <div className="grid grid-cols-2 gap-3">
-        <Field label="Tags (comma-separated)">
-          <input
-            value={form.tags}
-            onChange={e => set("tags", e.target.value)}
-            placeholder="AI literacy, privacy, family…"
-            className="w-full px-3 py-2.5 rounded-xl text-sm border focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7C63B8]"
-            style={fieldStyle}
-          />
-        </Field>
-        <Field label="Est. Read Time (min)">
-          <input
-            type="number" min={1} max={60}
-            value={form.read_time}
-            onChange={e => set("read_time", e.target.value)}
-            className="w-full px-3 py-2.5 rounded-xl text-sm border focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7C63B8]"
-            style={fieldStyle}
-          />
-        </Field>
+        <ErrMsg msg={errs.content} />
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <div>
+          <Lbl ch="Tags (comma-separated)" />
+          <input value={form.tags} onChange={e => set("tags", e.target.value)}
+            placeholder="AI literacy, privacy, family…" style={iStyle} />
+        </div>
+        <div>
+          <Lbl ch="Read Time (minutes)" />
+          <input type="number" min={1} max={60} value={form.read_time}
+            onChange={e => set("read_time", e.target.value)} style={iStyle} />
+        </div>
       </div>
     </div>
   )
 }
 
-// ── Video form ────────────────────────────────────────────────────────────────
-function VideoForm({ form, set, errs }: { form: FormState; set: (k: keyof FormState, v: string) => void; errs: Record<string,string> }) {
-  // Auto-detect YouTube preview
+// ── Video Form ─────────────────────────────────────────────────────────────
+function VideoForm({ form, set, errs }: { form: FormState; set: (k: keyof FormState, v: string) => void; errs: Record<string, string> }) {
   const ytId = form.video_url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/)?.[1]
-
   return (
-    <div className="space-y-4">
-      <Field label="Title" required error={errs.title}>
-        <input
-          value={form.title}
-          onChange={e => set("title", e.target.value)}
-          maxLength={120}
-          placeholder="Video title…"
-          className="w-full px-3 py-2.5 rounded-xl text-sm border focus:outline-none focus-visible:ring-2 focus-visible:ring-[#F3A78E]"
-          style={{ ...fieldStyle, borderColor: errs.title ? "#e74c3c" : undefined }}
-        />
-      </Field>
-
-      <Field label="Video URL" required error={errs.video_url}>
-        <input
-          type="url"
-          value={form.video_url}
-          onChange={e => set("video_url", e.target.value)}
-          placeholder="https://youtube.com/watch?v=… or any public video URL"
-          className="w-full px-3 py-2.5 rounded-xl text-sm border focus:outline-none focus-visible:ring-2 focus-visible:ring-[#F3A78E]"
-          style={{ ...fieldStyle, borderColor: errs.video_url ? "#e74c3c" : undefined }}
-        />
-      </Field>
-
-      {/* YouTube preview */}
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div>
+        <Lbl ch="Title" req />
+        <input value={form.title} onChange={e => set("title", e.target.value)}
+          maxLength={120} placeholder="Video title…"
+          style={{ ...iStyle, borderColor: errs.title ? "#e74c3c" : "var(--border, #EDE8E1)" }} />
+        <ErrMsg msg={errs.title} />
+      </div>
+      <div>
+        <Lbl ch="Video URL" req />
+        <input type="url" value={form.video_url} onChange={e => set("video_url", e.target.value)}
+          placeholder="https://youtube.com/watch?v=… or any public video link"
+          style={{ ...iStyle, borderColor: errs.video_url ? "#e74c3c" : "var(--border, #EDE8E1)" }} />
+        <ErrMsg msg={errs.video_url} />
+      </div>
       {ytId && (
-        <div className="rounded-xl overflow-hidden" style={{ border: "1.5px solid var(--border, #EDE8E1)" }}>
-          <img
-            src={`https://img.youtube.com/vi/${ytId}/hqdefault.jpg`}
-            alt="Video preview"
-            className="w-full h-40 object-cover"
-          />
-          <div className="px-3 py-2 flex items-center gap-2"
-            style={{ backgroundColor: "var(--muted, #FAF6F0)" }}>
-            <span className="text-xs text-red-500 font-bold">▶ YouTube</span>
-            <span className="text-xs" style={{ color: "var(--muted-foreground, #B79D84)" }}>Preview detected ✓</span>
+        <div style={{ borderRadius: 12, overflow: "hidden", border: "1.5px solid var(--border, #EDE8E1)" }}>
+          <img src={`https://img.youtube.com/vi/${ytId}/hqdefault.jpg`} alt="YouTube thumbnail"
+            style={{ width: "100%", height: 160, objectFit: "cover", display: "block" }} />
+          <div style={{ padding: "8px 12px", background: "var(--muted, #FAF6F0)", display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ color: "#e74c3c", fontWeight: 700, fontSize: 12 }}>▶ YouTube</span>
+            <span style={{ color: "var(--muted-foreground, #B79D84)", fontSize: 12 }}>Preview detected ✓</span>
           </div>
         </div>
       )}
-
-      <div className="grid grid-cols-2 gap-3">
-        <Field label="Category">
-          <select
-            value={form.category}
-            onChange={e => set("category", e.target.value)}
-            className="w-full px-3 py-2.5 rounded-xl text-sm border focus:outline-none focus-visible:ring-2 focus-visible:ring-[#F3A78E]"
-            style={fieldStyle}
-          >
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <div>
+          <Lbl ch="Category" />
+          <select value={form.category} onChange={e => set("category", e.target.value)} style={{ ...iStyle, cursor: "pointer" }}>
             <option value="">Select…</option>
             {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
-        </Field>
-        <Field label="Age Group">
-          <select
-            value={form.age_group}
-            onChange={e => set("age_group", e.target.value)}
-            className="w-full px-3 py-2.5 rounded-xl text-sm border focus:outline-none focus-visible:ring-2 focus-visible:ring-[#F3A78E]"
-            style={fieldStyle}
-          >
-            {AGE_GROUPS.map(ag => <option key={ag.value} value={ag.value}>{ag.label}</option>)}
+        </div>
+        <div>
+          <Lbl ch="Age Group" />
+          <select value={form.age_group} onChange={e => set("age_group", e.target.value)} style={{ ...iStyle, cursor: "pointer" }}>
+            {AGE_GROUPS.map(a => <option key={a.value} value={a.value}>{a.label}</option>)}
           </select>
-        </Field>
+        </div>
       </div>
-
-      <Field label="Commentary / Description">
-        <textarea
-          value={form.excerpt}
-          onChange={e => set("excerpt", e.target.value)}
+      <div>
+        <Lbl ch="Commentary / Why Share This?" />
+        <textarea value={form.excerpt} onChange={e => set("excerpt", e.target.value)} rows={4}
           placeholder="Why are you sharing this video? What should parents take away from it?"
-          rows={4}
-          className="w-full px-3 py-2.5 rounded-xl text-sm border focus:outline-none focus-visible:ring-2 focus-visible:ring-[#F3A78E]"
-          style={{ ...fieldStyle, resize: "vertical" }}
-        />
-      </Field>
+          style={{ ...iStyle, resize: "vertical", lineHeight: 1.65 }} />
+      </div>
     </div>
   )
 }
 
-// ── Main CreateModal ─────────────────────────────────────────────────────────
-function CreateModal({ onClose, initialType }: { onClose: () => void; initialType: PostType | null }) {
-  const [selectedType, setSelectedType] = useState<PostType | null>(initialType)
-  const [form,         setForm]         = useState<FormState>(EMPTY)
-  const [errs,         setErrs]         = useState<Record<string, string>>({})
-  const [submitState,  setSubmitState]  = useState<SubmitState>("idle")
-  const [serverError,  setServerError]  = useState<string>("")
-  const firstInputRef = useRef<HTMLInputElement>(null)
+// ── MODAL — rendered via portal so it's ALWAYS above everything ────────────
+function CreateModal({ type, onClose }: { type: PostType; onClose: () => void }) {
+  const [form,       setFormState] = useState<FormState>(EMPTY)
+  const [errs,       setErrs]      = useState<Record<string, string>>({})
+  const [submitState,setSubmit]    = useState<SubmitState>("idle")
+  const [serverErr,  setServerErr] = useState("")
+  const scrollRef = useRef<HTMLDivElement>(null)
 
-  // Lock body scroll + trap Escape key
+  // Lock body scroll, handle Escape
   useEffect(() => {
+    const prev = document.body.style.overflow
     document.body.style.overflow = "hidden"
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
-    document.addEventListener("keydown", onKey)
-    return () => { document.body.style.overflow = ""; document.removeEventListener("keydown", onKey) }
+    window.addEventListener("keydown", onKey)
+    return () => { document.body.style.overflow = prev; window.removeEventListener("keydown", onKey) }
   }, [onClose])
 
-  // Focus first input when type is selected
-  useEffect(() => {
-    if (selectedType) setTimeout(() => firstInputRef.current?.focus(), 100)
-  }, [selectedType])
-
   const setField = useCallback((k: keyof FormState, v: string) => {
-    setForm(f => ({ ...f, [k]: v }))
-    if (errs[k]) setErrs(e => { const n = { ...e }; delete n[k]; return n })
-  }, [errs])
+    setFormState(f => ({ ...f, [k]: v }))
+    setErrs(e => { const n = { ...e }; delete n[k]; return n })
+  }, [])
 
-  async function handleSubmit() {
-    if (!selectedType) return
-    const validation = validate(selectedType.id, form)
-    if (Object.keys(validation).length > 0) { setErrs(validation); return }
-
-    setSubmitState("submitting")
-    setServerError("")
-
+  async function submit() {
+    const validation = validate(type.id, form)
+    if (Object.keys(validation).length) { setErrs(validation); return }
+    setSubmit("submitting"); setServerErr("")
     try {
       const payload: Record<string, unknown> = {
         title:      form.title.trim(),
-        asset_type: selectedType.id,
+        asset_type: type.id,
         age_group:  form.age_group || "all",
       }
       if (form.content.trim())   payload.content   = form.content.trim()
@@ -393,230 +266,175 @@ function CreateModal({ onClose, initialType }: { onClose: () => void; initialTyp
       if (form.read_time)        payload.read_time = Number(form.read_time) || 5
 
       const res  = await fetch("/api/user-posts", {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify(payload),
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       })
       const data = await res.json()
-
-      if (!res.ok) {
-        setServerError(data.error ?? "Submission failed. Please try again.")
-        setSubmitState("error")
-        return
-      }
-
-      setSubmitState("success")
-    } catch (e) {
-      setServerError("Network error. Please check your connection.")
-      setSubmitState("error")
+      if (!res.ok) { setServerErr(data.error ?? "Submission failed. Please try again."); setSubmit("error"); return }
+      setSubmit("success")
+    } catch {
+      setServerErr("Network error. Check your connection and try again.")
+      setSubmit("error")
     }
   }
 
-  const type = selectedType
+  const col = type.color
 
-  return (
+  // ── Render via portal to document.body ────────────────────────────────
+  const modal = (
     <div
-      className="fixed inset-0 z-[999] flex items-start justify-center pt-[3vh] pb-8 px-4 overflow-y-auto"
-      style={{ backgroundColor: "rgba(0,0,0,0.6)", backdropFilter: "blur(6px)" }}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
-      role="dialog" aria-modal="true"
-      aria-label={type ? `Create ${type.label}` : "Create content"}
+      style={{
+        position:        "fixed",
+        inset:           0,
+        zIndex:          99999,           // above EVERYTHING including navbar
+        backgroundColor: "rgba(0,0,0,0.65)",
+        backdropFilter:  "blur(6px)",
+        display:         "flex",
+        alignItems:      "flex-start",
+        justifyContent:  "center",
+        overflowY:       "auto",
+        padding:         "60px 16px 40px", // 60px top so modal clears navbar
+      }}
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Create ${type.label}`}
     >
+      {/* Modal card */}
       <div
-        className="w-full max-w-[600px] rounded-2xl overflow-hidden shadow-2xl"
+        ref={scrollRef}
         style={{
-          backgroundColor: "var(--card, #fff)",
-          border: "1.5px solid var(--border, #EDE8E1)",
+          width:           "100%",
+          maxWidth:        600,
+          borderRadius:    20,
+          overflow:        "hidden",
+          boxShadow:       "0 32px 80px rgba(0,0,0,0.35)",
+          backgroundColor: "var(--card, #ffffff)",
+          border:          "1.5px solid var(--border, #EDE8E1)",
+          // Do NOT set max-height here — let it grow naturally and scroll the backdrop
         }}
+        onClick={e => e.stopPropagation()}
       >
-        {/* ── Modal header ──────────────────────────────────────── */}
-        <div
-          className="flex items-center justify-between px-6 py-5"
-          style={{
-            background: type
-              ? `linear-gradient(135deg, ${type.color}dd, ${type.color}88)`
-              : "linear-gradient(135deg, #7C63B8, #B9A6E3)",
-          }}
-        >
-          <div className="flex items-center gap-3">
-            {type && (
-              <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
-                <type.icon size={18} className="text-white" />
-              </div>
-            )}
+        {/* ── Coloured header ─────────────────────────────────────── */}
+        <div style={{
+          background:  `linear-gradient(135deg, ${col}ee, ${col}99)`,
+          padding:     "20px 24px",
+          display:     "flex",
+          alignItems:  "center",
+          justifyContent: "space-between",
+          gap:         12,
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ width: 40, height: 40, borderRadius: 12, background: "rgba(255,255,255,0.22)",
+              display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <type.Icon size={19} color="#fff" />
+            </div>
             <div>
-              <h2 className="text-white font-bold text-lg leading-tight"
-                style={{ fontFamily: "var(--font-quicksand), Quicksand, sans-serif" }}>
-                {type ? `Create ${type.label}` : "Create"}
+              <h2 style={{ color: "#fff", fontWeight: 800, fontSize: 18, margin: 0,
+                fontFamily: "var(--font-quicksand), Quicksand, sans-serif" }}>
+                Create {type.label}
               </h2>
-              <p className="text-white/75 text-xs" style={{ fontFamily: "var(--font-nunito), Nunito, sans-serif" }}>
-                {type ? type.hint : "Share with the Parent in the Loop community"}
+              <p style={{ color: "rgba(255,255,255,0.78)", fontSize: 12, margin: "3px 0 0",
+                fontFamily: "var(--font-nunito), Nunito, sans-serif" }}>
+                {type.hint}
               </p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            aria-label="Close"
-            className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/35 flex items-center justify-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
-          >
-            <X size={16} className="text-white" />
+          <button onClick={onClose} aria-label="Close"
+            style={{ width: 32, height: 32, borderRadius: "50%", border: "none", cursor: "pointer",
+              background: "rgba(255,255,255,0.22)", display: "flex", alignItems: "center",
+              justifyContent: "center", flexShrink: 0, transition: "background .15s" }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.35)" }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.22)" }}>
+            <X size={15} color="#fff" />
           </button>
         </div>
 
-        {/* ── Modal body ────────────────────────────────────────── */}
-        <div className="px-6 py-6">
+        {/* ── Body ─────────────────────────────────────────────────── */}
+        <div style={{ padding: "28px 28px 24px" }}>
 
-          {/* ── SUCCESS ─────────────────────────────────────────── */}
-          {submitState === "success" && (
-            <div className="text-center py-10">
-              <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
-                style={{ backgroundColor: "rgba(166,182,161,0.2)" }}>
-                <Check size={28} style={{ color: "#4d7a49" }} />
+          {/* SUCCESS STATE */}
+          {submitState === "success" ? (
+            <div style={{ textAlign: "center", padding: "24px 0" }}>
+              <div style={{ width: 64, height: 64, borderRadius: "50%", background: "rgba(166,182,161,0.18)",
+                display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
+                <Check size={28} color="#4d7a49" />
               </div>
-              <h3 className="text-xl font-bold mb-2"
-                style={{ color: "var(--foreground, #222222)", fontFamily: "var(--font-quicksand), Quicksand, sans-serif" }}>
+              <h3 style={{ fontWeight: 800, fontSize: 20, marginBottom: 10,
+                color: "var(--foreground, #222222)", fontFamily: "var(--font-quicksand), Quicksand, sans-serif" }}>
                 Submitted for review!
               </h3>
-              <p className="text-sm mb-2" style={{ color: "var(--muted-foreground, #B79D84)", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}>
-                Your {type?.label.toLowerCase()} has been received and will appear after our team reviews it.
+              <p style={{ fontSize: 14, color: "var(--muted-foreground, #B79D84)", marginBottom: 6, lineHeight: 1.6,
+                fontFamily: "var(--font-nunito), Nunito, sans-serif" }}>
+                Your {type.label.toLowerCase()} will appear after our team reviews it.
               </p>
-              <p className="text-xs mb-8" style={{ color: "var(--muted-foreground, #B79D84)", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}>
-                Thank you for contributing to the Parent in the Loop community! 🙏
+              <p style={{ fontSize: 13, color: "var(--muted-foreground, #B79D84)", marginBottom: 28,
+                fontFamily: "var(--font-nunito), Nunito, sans-serif" }}>
+                Thank you for contributing to the community! 🙏
               </p>
-              <div className="flex gap-3 justify-center">
-                <button
-                  onClick={() => { setSubmitState("idle"); setForm(EMPTY); setSelectedType(null) }}
-                  className="px-5 py-2.5 rounded-xl text-sm font-bold border-2 transition-all hover:scale-105"
-                  style={{ color: "#7C63B8", borderColor: "rgba(124,99,184,0.35)", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}
-                >
+              <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
+                <button onClick={() => { setSubmit("idle"); setFormState(EMPTY); setErrs({}) }}
+                  style={{ padding: "10px 20px", borderRadius: 99, border: `2px solid ${col}55`,
+                    background: "transparent", color: col, fontWeight: 700, fontSize: 13, cursor: "pointer",
+                    fontFamily: "var(--font-nunito), Nunito, sans-serif" }}>
                   Create another
                 </button>
-                <button
-                  onClick={onClose}
-                  className="px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:scale-105"
-                  style={{ backgroundColor: type?.color ?? "#7C63B8", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}
-                >
+                <button onClick={onClose}
+                  style={{ padding: "10px 24px", borderRadius: 99, border: "none",
+                    background: col, color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer",
+                    fontFamily: "var(--font-nunito), Nunito, sans-serif" }}>
                   Done
                 </button>
               </div>
             </div>
-          )}
-
-          {/* ── TYPE PICKER ─────────────────────────────────────── */}
-          {submitState !== "success" && !type && (
-            <div>
-              <p className="text-sm mb-4" style={{ color: "var(--muted-foreground, #B79D84)", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}>
-                What would you like to create?
-              </p>
-              <div className="space-y-3">
-                {POST_TYPES.map(t => (
-                  <button
-                    key={t.id}
-                    onClick={() => { setSelectedType(t); setForm(EMPTY); setErrs({}) }}
-                    className="w-full flex items-center gap-4 px-4 py-4 rounded-2xl text-left border-2 transition-all hover:scale-[1.01] focus:outline-none focus-visible:ring-2"
-                    style={{
-                      backgroundColor: "transparent",
-                      borderColor:     "var(--border, #EDE8E1)",
-                      focusRingColor:  t.color,
-                    }}
-                    onMouseEnter={e => {
-                      const b = e.currentTarget as HTMLButtonElement
-                      b.style.borderColor     = t.color
-                      b.style.backgroundColor = t.color + "10"
-                    }}
-                    onMouseLeave={e => {
-                      const b = e.currentTarget as HTMLButtonElement
-                      b.style.borderColor     = "var(--border, #EDE8E1)"
-                      b.style.backgroundColor = "transparent"
-                    }}
-                  >
-                    <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
-                      style={{ backgroundColor: t.color + "20" }}>
-                      <t.icon size={20} style={{ color: t.color }} />
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-bold text-base" style={{ color: "var(--foreground, #222222)", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}>
-                        {t.label}
-                      </p>
-                      <p className="text-xs mt-0.5" style={{ color: "var(--muted-foreground, #B79D84)", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}>
-                        {t.desc}
-                      </p>
-                    </div>
-                    <span style={{ color: "var(--muted-foreground, #B79D84)", fontSize: 18 }}>→</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* ── FORM ────────────────────────────────────────────── */}
-          {submitState !== "success" && type && (
+          ) : (
             <>
-              {/* Back button */}
-              <button
-                onClick={() => { setSelectedType(null); setErrs({}); setServerError("") }}
-                className="flex items-center gap-1.5 text-xs font-semibold mb-5 transition-colors focus:outline-none"
-                style={{ color: "var(--muted-foreground, #B79D84)", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}
-                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "#7C63B8" }}
-                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "var(--muted-foreground, #B79D84)" }}
-              >
-                ← Back
-              </button>
-
-              {/* Render the correct form */}
+              {/* THE FORM */}
               {type.id === "note"    && <NoteForm    form={form} set={setField} errs={errs} />}
               {type.id === "article" && <ArticleForm form={form} set={setField} errs={errs} />}
               {type.id === "video"   && <VideoForm   form={form} set={setField} errs={errs} />}
 
-              {/* Server error */}
-              {serverError && (
-                <div className="mt-4 px-4 py-3 rounded-xl flex items-start gap-2"
-                  style={{ backgroundColor: "rgba(243,167,142,0.1)", border: "1px solid rgba(243,167,142,0.3)" }}>
-                  <AlertCircle size={15} style={{ color: "#e74c3c", flexShrink: 0, marginTop: 1 }} />
-                  <p className="text-xs" style={{ color: "#e74c3c", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}>
-                    {serverError}
-                  </p>
-                </div>
-              )}
-
-              {/* Guidelines reminder */}
-              <div className="mt-4 px-4 py-3 rounded-xl"
-                style={{ backgroundColor: "rgba(124,99,184,0.05)", border: "1px solid rgba(124,99,184,0.15)" }}>
-                <p className="text-xs" style={{ color: "#7C63B8", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}>
-                  📋 All submissions are reviewed before publishing. Please keep content family-friendly and evidence-based. Avoid personal data about minors.
+              {/* Guidelines */}
+              <div style={{ marginTop: 20, padding: "12px 16px", borderRadius: 12,
+                background: "rgba(124,99,184,0.05)", border: "1px solid rgba(124,99,184,0.15)" }}>
+                <p style={{ fontSize: 12, color: "#7C63B8", margin: 0,
+                  fontFamily: "var(--font-nunito), Nunito, sans-serif", lineHeight: 1.55 }}>
+                  📋 All submissions are reviewed before publishing. Keep content family-friendly and evidence-based.
                 </p>
               </div>
 
+              {/* Server error */}
+              {serverErr && (
+                <div style={{ marginTop: 12, padding: "12px 16px", borderRadius: 12,
+                  background: "rgba(231,76,60,0.07)", border: "1px solid rgba(231,76,60,0.25)",
+                  display: "flex", alignItems: "flex-start", gap: 8 }}>
+                  <AlertCircle size={15} color="#e74c3c" style={{ flexShrink: 0, marginTop: 1 }} />
+                  <p style={{ fontSize: 13, color: "#e74c3c", margin: 0,
+                    fontFamily: "var(--font-nunito), Nunito, sans-serif" }}>{serverErr}</p>
+                </div>
+              )}
+
               {/* Action buttons */}
-              <div className="flex gap-3 justify-end mt-5 pt-4"
-                style={{ borderTop: "1px solid var(--border, #EDE8E1)" }}>
-                <button
-                  onClick={onClose}
-                  className="px-5 py-2.5 rounded-xl text-sm font-semibold border transition-colors"
-                  style={{
-                    color:       "var(--foreground, #3E3E3E)",
-                    borderColor: "var(--border, #EDE8E1)",
-                    fontFamily:  "var(--font-nunito), Nunito, sans-serif",
-                    backgroundColor: "transparent",
-                  }}
-                >
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 24,
+                paddingTop: 16, borderTop: "1px solid var(--border, #EDE8E1)" }}>
+                <button onClick={onClose}
+                  style={{ padding: "10px 20px", borderRadius: 99, border: "1.5px solid var(--border, #EDE8E1)",
+                    background: "transparent", color: "var(--foreground, #3E3E3E)", fontWeight: 600,
+                    fontSize: 13, cursor: "pointer", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}>
                   Cancel
                 </button>
                 <button
-                  onClick={handleSubmit}
+                  onClick={submit}
                   disabled={submitState === "submitting"}
-                  className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:scale-105 active:scale-95 disabled:opacity-60 disabled:scale-100 disabled:cursor-wait focus:outline-none focus-visible:ring-2"
-                  style={{
-                    backgroundColor: type.color,
-                    fontFamily:      "var(--font-nunito), Nunito, sans-serif",
-                    boxShadow:       `0 2px 12px ${type.color}44`,
-                  }}
-                >
-                  {submitState === "submitting" ? (
-                    <><Loader2 size={14} className="animate-spin" /> Submitting…</>
-                  ) : (
-                    <>Submit {type.label}</>
-                  )}
+                  style={{ padding: "10px 28px", borderRadius: 99, border: "none", background: col,
+                    color: "#fff", fontWeight: 700, fontSize: 13, cursor: submitState === "submitting" ? "wait" : "pointer",
+                    opacity: submitState === "submitting" ? 0.7 : 1,
+                    display: "flex", alignItems: "center", gap: 8,
+                    fontFamily: "var(--font-nunito), Nunito, sans-serif",
+                    boxShadow: `0 2px 12px ${col}55` }}>
+                  {submitState === "submitting"
+                    ? <><Loader2 size={14} className="animate-spin" /> Submitting…</>
+                    : `Submit ${type.label}`}
                 </button>
               </div>
             </>
@@ -625,13 +443,84 @@ function CreateModal({ onClose, initialType }: { onClose: () => void; initialTyp
       </div>
     </div>
   )
+
+  // Portal to body — bypasses ALL z-index stacking contexts
+  if (typeof window === "undefined") return null
+  return ReactDOM.createPortal(modal, document.body)
 }
 
-// ── Dropdown button ──────────────────────────────────────────────────────────
+// ── Type picker modal (when no type pre-selected) ──────────────────────────
+function TypePickerModal({ onPick, onClose }: { onPick: (t: PostType) => void; onClose: () => void }) {
+  useEffect(() => {
+    const prev = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
+    window.addEventListener("keydown", onKey)
+    return () => { document.body.style.overflow = prev; window.removeEventListener("keydown", onKey) }
+  }, [onClose])
+
+  const modal = (
+    <div
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+      style={{ position: "fixed", inset: 0, zIndex: 99999, backgroundColor: "rgba(0,0,0,0.6)",
+        backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+      <div style={{ width: "100%", maxWidth: 480, borderRadius: 20, overflow: "hidden",
+        boxShadow: "0 32px 80px rgba(0,0,0,0.3)",
+        backgroundColor: "var(--card, #fff)", border: "1.5px solid var(--border, #EDE8E1)" }}
+        onClick={e => e.stopPropagation()}>
+
+        <div style={{ background: "linear-gradient(135deg, #7C63B8, #B9A6E3)", padding: "20px 24px",
+          display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div>
+            <h2 style={{ color: "#fff", fontWeight: 800, fontSize: 18, margin: 0,
+              fontFamily: "var(--font-quicksand), Quicksand, sans-serif" }}>Create</h2>
+            <p style={{ color: "rgba(255,255,255,0.78)", fontSize: 12, margin: "3px 0 0",
+              fontFamily: "var(--font-nunito), Nunito, sans-serif" }}>Share with the Parent in the Loop community</p>
+          </div>
+          <button onClick={onClose} aria-label="Close"
+            style={{ width: 32, height: 32, borderRadius: "50%", border: "none", cursor: "pointer",
+              background: "rgba(255,255,255,0.22)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <X size={15} color="#fff" />
+          </button>
+        </div>
+
+        <div style={{ padding: "20px 24px 24px", display: "flex", flexDirection: "column", gap: 10 }}>
+          <p style={{ fontSize: 13, color: "var(--muted-foreground, #B79D84)", margin: "0 0 4px",
+            fontFamily: "var(--font-nunito), Nunito, sans-serif" }}>What would you like to create?</p>
+          {POST_TYPES.map(t => (
+            <button key={t.id} onClick={() => onPick(t)}
+              style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 16px",
+                borderRadius: 14, border: "1.5px solid var(--border, #EDE8E1)", background: "transparent",
+                cursor: "pointer", textAlign: "left", transition: "all .15s", width: "100%" }}
+              onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = t.color; b.style.background = t.color + "0f" }}
+              onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = "var(--border, #EDE8E1)"; b.style.background = "transparent" }}>
+              <div style={{ width: 44, height: 44, borderRadius: 12, background: t.color + "1a",
+                display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <t.Icon size={20} color={t.color} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <p style={{ fontWeight: 700, fontSize: 15, margin: "0 0 3px",
+                  color: "var(--foreground, #222222)", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}>{t.label}</p>
+                <p style={{ fontSize: 12, margin: 0, color: "var(--muted-foreground, #B79D84)",
+                  fontFamily: "var(--font-nunito), Nunito, sans-serif" }}>{t.desc}</p>
+              </div>
+              <span style={{ color: "var(--muted-foreground, #B79D84)", fontSize: 18 }}>→</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+
+  if (typeof window === "undefined") return null
+  return ReactDOM.createPortal(modal, document.body)
+}
+
+// ── Dropdown button ────────────────────────────────────────────────────────
 export default function CreateMenu({ mobile = false }: { mobile?: boolean }) {
-  const [dropOpen, setDropOpen] = useState(false)
-  const [modal,    setModal]    = useState(false)
-  const [initType, setInitType] = useState<PostType | null>(null)
+  const [dropOpen,  setDropOpen]  = useState(false)
+  const [showPick,  setShowPick]  = useState(false)
+  const [activeType,setActiveType]= useState<PostType | null>(null)
   const dropRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -642,41 +531,28 @@ export default function CreateMenu({ mobile = false }: { mobile?: boolean }) {
     return () => document.removeEventListener("mousedown", outside)
   }, [])
 
-  function openModal(type: PostType | null = null) {
-    setDropOpen(false)
-    setInitType(type)
-    setModal(true)
-  }
+  function open(t?: PostType) { setDropOpen(false); if (t) { setActiveType(t); setShowPick(false) } else { setActiveType(null); setShowPick(true) } }
+  function closeAll() { setActiveType(null); setShowPick(false) }
 
-  // Mobile variant — just a row of buttons
+  // Mobile row
   if (mobile) {
     return (
       <>
-        <div>
-          <p className="text-xs font-bold uppercase tracking-widest mb-2"
-            style={{ color: "#B79D84", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}>
-            Create
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {POST_TYPES.map(t => (
-              <button
-                key={t.id}
-                onClick={() => openModal(t)}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold border transition-all hover:scale-105"
-                style={{
-                  color:           t.color,
-                  borderColor:     t.color + "44",
-                  backgroundColor: t.color + "10",
-                  fontFamily:      "var(--font-nunito), Nunito, sans-serif",
-                }}
-              >
-                <t.icon size={14} />
-                {t.label}
-              </button>
-            ))}
-          </div>
+        <p style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase" as const,
+          letterSpacing: "0.08em", color: "#B79D84", marginBottom: 8,
+          fontFamily: "var(--font-nunito), Nunito, sans-serif" }}>Create</p>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          {POST_TYPES.map(t => (
+            <button key={t.id} onClick={() => open(t)}
+              style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px",
+                borderRadius: 99, border: `1.5px solid ${t.color}55`, background: t.color + "12",
+                color: t.color, fontWeight: 700, fontSize: 13, cursor: "pointer",
+                fontFamily: "var(--font-nunito), Nunito, sans-serif" }}>
+              <t.Icon size={14} />{t.label}
+            </button>
+          ))}
         </div>
-        {modal && <CreateModal onClose={() => setModal(false)} initialType={initType} />}
+        {activeType && <CreateModal type={activeType} onClose={closeAll} />}
       </>
     )
   }
@@ -684,68 +560,49 @@ export default function CreateMenu({ mobile = false }: { mobile?: boolean }) {
   // Desktop dropdown
   return (
     <>
-      <div ref={dropRef} className="relative">
+      <div ref={dropRef} style={{ position: "relative" }}>
         <button
           onClick={() => setDropOpen(o => !o)}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold text-white transition-all hover:scale-105 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#F3A78E]"
-          style={{
-            backgroundColor: "#F3A78E",
-            fontFamily:      "var(--font-nunito), Nunito, sans-serif",
-            boxShadow:       "0 2px 8px rgba(243,167,142,0.4)",
-          }}
           aria-expanded={dropOpen}
           aria-haspopup="menu"
-          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#E8926A" }}
-          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#F3A78E" }}
-        >
+          style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 18px",
+            borderRadius: 99, border: "none", background: "#F3A78E", color: "#fff",
+            fontWeight: 700, fontSize: 14, cursor: "pointer", transition: "background .15s",
+            fontFamily: "var(--font-nunito), Nunito, sans-serif",
+            boxShadow: "0 2px 8px rgba(243,167,142,0.4)" }}
+          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "#E8926A" }}
+          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "#F3A78E" }}>
           <Plus size={15} />
           Create
-          <ChevronDown size={13} className={`transition-transform duration-200 ${dropOpen ? "rotate-180" : ""}`} />
+          <ChevronDown size={13} style={{ transform: dropOpen ? "rotate(180deg)" : "none", transition: "transform .2s" }} />
         </button>
 
         {dropOpen && (
-          <div
-            className="absolute top-full right-0 mt-2 w-60 rounded-2xl overflow-hidden shadow-2xl z-50"
-            style={{
-              backgroundColor: "var(--card, #fff)",
-              border:          "1.5px solid var(--border, #EDE8E1)",
-            }}
-            role="menu"
-            aria-label="Create options"
-          >
-            <div className="px-4 pt-3 pb-2 border-b" style={{ borderColor: "var(--border, #EDE8E1)" }}>
-              <p className="text-xs font-bold uppercase tracking-widest"
-                style={{ color: "#B79D84", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}>
-                Share with Community
-              </p>
+          <div style={{ position: "absolute", top: "calc(100% + 8px)", right: 0, width: 240,
+            borderRadius: 16, overflow: "hidden", boxShadow: "0 12px 40px rgba(0,0,0,0.15)",
+            background: "var(--card, #fff)", border: "1.5px solid var(--border, #EDE8E1)", zIndex: 9999 }}
+            role="menu">
+            <div style={{ padding: "10px 16px 8px", borderBottom: "1px solid var(--border, #EDE8E1)" }}>
+              <p style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase" as const,
+                letterSpacing: "0.09em", color: "#B79D84", margin: 0,
+                fontFamily: "var(--font-nunito), Nunito, sans-serif" }}>Share with Community</p>
             </div>
-
             {POST_TYPES.map((t, i) => (
-              <button
-                key={t.id}
-                onClick={() => openModal(t)}
-                className="w-full flex items-start gap-3 px-4 py-3 text-left transition-colors focus:outline-none"
-                style={{
-                  borderBottom: i < POST_TYPES.length - 1 ? "1px solid var(--border, #EDE8E1)" : "none",
-                  backgroundColor: "transparent",
-                }}
-                role="menuitem"
-                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = t.color + "08" }}
-                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = "transparent" }}
-              >
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
-                  style={{ backgroundColor: t.color + "18" }}>
-                  <t.icon size={15} style={{ color: t.color }} />
+              <button key={t.id} onClick={() => open(t)} role="menuitem"
+                style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "12px 16px", width: "100%",
+                  border: "none", borderBottom: i < POST_TYPES.length - 1 ? "1px solid var(--border, #EDE8E1)" : "none",
+                  background: "transparent", cursor: "pointer", textAlign: "left", transition: "background .1s" }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = t.color + "0a" }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent" }}>
+                <div style={{ width: 32, height: 32, borderRadius: 8, background: t.color + "1a",
+                  display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2 }}>
+                  <t.Icon size={15} color={t.color} />
                 </div>
                 <div>
-                  <p className="text-sm font-bold"
-                    style={{ color: "var(--foreground, #222222)", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}>
-                    {t.label}
-                  </p>
-                  <p className="text-xs mt-0.5"
-                    style={{ color: "var(--muted-foreground, #B79D84)", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}>
-                    {t.desc}
-                  </p>
+                  <p style={{ fontWeight: 700, fontSize: 13, margin: "0 0 2px",
+                    color: "var(--foreground, #222222)", fontFamily: "var(--font-nunito), Nunito, sans-serif" }}>{t.label}</p>
+                  <p style={{ fontSize: 11, margin: 0, color: "var(--muted-foreground, #B79D84)",
+                    fontFamily: "var(--font-nunito), Nunito, sans-serif" }}>{t.desc}</p>
                 </div>
               </button>
             ))}
@@ -753,7 +610,9 @@ export default function CreateMenu({ mobile = false }: { mobile?: boolean }) {
         )}
       </div>
 
-      {modal && <CreateModal onClose={() => setModal(false)} initialType={initType} />}
+      {/* Picker or direct form */}
+      {showPick  && <TypePickerModal onPick={t => { setShowPick(false); setActiveType(t) }} onClose={closeAll} />}
+      {activeType && <CreateModal type={activeType} onClose={closeAll} />}
     </>
   )
 }
